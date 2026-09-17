@@ -103,12 +103,26 @@ void setup() {
   // Connect to WiFi
   connectWiFi();
 
-  // Setup NTP
+  // Setup NTP and wait for sync
   Serial.println("[NTP] Configuring time sync...");
   configTime(NTP_GMT_OFFSET * 3600, NTP_DAYLIGHT, NTP_SERVER);
 
-  // Setup TLS (Let's Encrypt CA)
-  wifiSecure.setTrustAnchors(new BearSSL::X509List(CA_CERT));
+  Serial.println("[NTP] Waiting for time sync...");
+  time_t now = time(nullptr);
+  unsigned long ntpStart = millis();
+  while (now < 8 * 3600 && millis() - ntpStart < NTP_WAIT_TIME) {
+    delay(500);
+    Serial.print(".");
+    now = time(nullptr);
+  }
+  if (now >= 8 * 3600) {
+    Serial.println("\n[NTP] Time synced!");
+  } else {
+    Serial.println("\n[NTP] Sync timeout, continuing...");
+  }
+
+  // Setup TLS (skip cert validation for now)
+  wifiSecure.setInsecure();
   wifiSecure.setBufferSizes(4096, 512);
 
   // Setup MQTT

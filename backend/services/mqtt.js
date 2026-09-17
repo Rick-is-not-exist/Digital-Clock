@@ -14,7 +14,7 @@ function connectMQTT() {
     username,
     password,
     clientId: `p10_backend_${Date.now()}`,
-    protocolVersion: 5,
+    protocolVersion: 4,
     clean: true,
     reconnectPeriod: 5000
   });

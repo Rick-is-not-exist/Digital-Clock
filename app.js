@@ -116,6 +116,30 @@ function showMainApp() {
   initSimulatorTheme();
   startSimulatorCycle();
   updateSimulatorUI();
+  startStatusPolling();
+}
+
+let statusPollTimer = null;
+function startStatusPolling() {
+  if (statusPollTimer) clearInterval(statusPollTimer);
+  statusPollTimer = setInterval(async () => {
+    if (!state.activeDevice) return;
+    try {
+      const res = await apiFetch(`/api/devices/${state.activeDevice.id}`);
+      if (!res.ok) return;
+      const device = await res.json();
+      const idx = state.devices.findIndex(d => d.id === device.id);
+      if (idx >= 0) {
+        state.devices[idx].online = device.online;
+        state.devices[idx].last_seen = device.last_seen;
+      }
+      if (el.badgeText) {
+        const status = device.online ? 'Online' : 'Offline';
+        el.badgeText.textContent = `${state.activeDevice.name} \u2022 ${status}`;
+      }
+      renderDeviceList();
+    } catch (e) {}
+  }, 5000);
 }
 
 function setupAuthListeners() {

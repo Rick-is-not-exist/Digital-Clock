@@ -43,13 +43,13 @@ DMDESP dmd(DISPLAYS_WIDE, DISPLAYS_HIGH);
 String deviceUID;
 
 // Variables Pengaturan
-String text1 = "SELAMAT DATANG DI SISTEM IoT P10 ESP8266";
+String text1 = "HALLO";
 String anim = "scroll_left";
 int speed_ms = 40;
 int clock_duration = 10;
 int text_duration = 8;
 String display_mode = "cycle";
-int brightness_pwm = 204;
+int brightness_pwm = 102;
 bool format_24h = true;
 bool show_seconds = true;
 
@@ -87,7 +87,7 @@ void setup() {
 
   // Generate device UID from chip ID
   deviceUID = String(ESP.getChipId(), HEX);
-  Serial.print("Device UID: p10_");
+  Serial.print("Device UID: ");
   Serial.println(deviceUID);
 
   // Initialize DMD
@@ -220,25 +220,6 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   if (doc.containsKey("format_24h")) format_24h = doc["format_24h"].as<bool>();
   if (doc.containsKey("show_seconds")) show_seconds = doc["show_seconds"].as<bool>();
 
-  // Time sync
-  if (doc.containsKey("hour")) current_hour = doc["hour"].as<int>();
-  if (doc.containsKey("min")) current_min = doc["min"].as<int>();
-  if (doc.containsKey("sec")) current_sec = doc["sec"].as<int>();
-  if (doc.containsKey("day")) current_day = doc["day"].as<int>();
-  if (doc.containsKey("month")) current_month = doc["month"].as<int>();
-  if (doc.containsKey("year")) current_year = doc["year"].as<int>();
-
-  // Also check time_sync nested object
-  if (doc.containsKey("time_sync")) {
-    JsonObject t = doc["time_sync"];
-    current_hour = t["hour"] | current_hour;
-    current_min = t["min"] | current_min;
-    current_sec = t["sec"] | current_sec;
-    current_day = t["day"] | current_day;
-    current_month = t["month"] | current_month;
-    current_year = t["year"] | current_year;
-  }
-
   Serial.println("[MQTT] Settings applied!");
 }
 
@@ -367,7 +348,6 @@ void loop() {
   }
 
   // Display logic
-  dmd.loop();
   updateClockTicks();
 
   unsigned long currentMillis = millis();
@@ -377,6 +357,8 @@ void loop() {
     if (currentMillis - last_mode_switch >= activeDuration) {
       last_mode_switch = currentMillis;
       is_showing_clock = !is_showing_clock;
+      scroll_x = 32 * DISPLAYS_WIDE;
+      last_scroll_tick = millis();
       dmd.clear();
     }
   } else if (display_mode == "clock_only") {
@@ -423,8 +405,10 @@ void loop() {
         } else {
           scroll_x--;
           if (scroll_x < -text_width) scroll_x = 32 * DISPLAYS_WIDE;
-        }
       }
     }
   }
+
+  dmd.loop();
+}
 }

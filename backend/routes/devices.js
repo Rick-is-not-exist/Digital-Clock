@@ -120,16 +120,7 @@ router.put('/:id/settings', async (req, res) => {
       mode: settings.display_mode,
       brightness_pwm: Math.round((settings.brightness / 100) * 255),
       format_24h: true,
-      show_seconds: true,
-      time_sync: {
-        hour: new Date().getHours(),
-        min: new Date().getMinutes(),
-        sec: new Date().getSeconds(),
-        day: new Date().getDate(),
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear(),
-        dow: new Date().getDay()
-      }
+      show_seconds: true
     };
 
     publishCommand(deviceUID, mqttPayload);
@@ -157,25 +148,10 @@ router.post('/:id/sync-time', async (req, res) => {
       return res.status(404).json({ error: 'Device not found' });
     }
 
-    const now = new Date();
-    const payload = {
-      hour: now.getHours(),
-      min: now.getMinutes(),
-      sec: now.getSeconds(),
-      day: now.getDate(),
-      month: now.getMonth() + 1,
-      year: now.getFullYear(),
-      dow: now.getDay()
-    };
+    const deviceUID = deviceCheck.rows[0].device_uid;
+    publishCommand(deviceUID, { time_sync: "ok" });
 
-    publishCommand(deviceCheck.rows[0].device_uid, payload);
-
-    await pool.query(
-      'INSERT INTO command_logs (device_id, command_type, payload) VALUES ($1, $2, $3)',
-      [id, 'time_sync', JSON.stringify(payload)]
-    );
-
-    res.json({ status: 'ok', message: 'Time synced' });
+    res.json({ status: 'ok', message: 'Time synced via NTP' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

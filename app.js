@@ -1,0 +1,688 @@
+/**
+ * P10 IoT Controller - Cloud Edition
+ */
+
+const API_URL = 'https://p10iot.up.railway.app';
+
+const state = {
+  token: localStorage.getItem('p10_token') || null,
+  user: JSON.parse(localStorage.getItem('p10_user') || 'null'),
+  devices: [],
+  activeDevice: null,
+  text1: "SELAMAT DATANG DI SISTEM IoT P10 ESP8266",
+  anim: "scroll_left",
+  speed: 5,
+  clockDuration: 10,
+  textDuration: 8,
+  displayMode: "cycle",
+  brightness: 80,
+  autoDimming: false,
+  themeColor: "red",
+  simCurrentView: "clock",
+  simTimer: null
+};
+
+const el = {
+  authScreen: document.getElementById('authScreen'),
+  mainApp: document.getElementById('mainApp'),
+  authForm: document.getElementById('authForm'),
+  authEmail: document.getElementById('authEmail'),
+  authPassword: document.getElementById('authPassword'),
+  authName: document.getElementById('authName'),
+  authSubmit: document.getElementById('authSubmit'),
+  authToggle: document.getElementById('authToggle'),
+  authError: document.getElementById('authError'),
+  registerFields: document.getElementById('registerFields'),
+  btnLogout: document.getElementById('btnLogout'),
+  userName: document.getElementById('userName'),
+  navItems: document.querySelectorAll('.nav-item'),
+  tabContents: document.querySelectorAll('.tab-content'),
+  p10Matrix: document.getElementById('p10Matrix'),
+  matrixClockView: document.getElementById('matrixClockView'),
+  matrixMarqueeView: document.getElementById('matrixMarqueeView'),
+  simTimeDisplay: document.getElementById('simHours'),
+  simMinDisplay: document.getElementById('simMin'),
+  simDateDisplay: document.getElementById('simDate'),
+  simMarqueeContent: document.getElementById('simMarqueeContent'),
+  simStatusInfo: document.getElementById('simStatusInfo'),
+  simModeLabel: document.getElementById('simModeLabel'),
+  btnToggleSimMode: document.getElementById('btnToggleSimMode'),
+  colorDots: document.querySelectorAll('.color-dot'),
+  badgeText: document.getElementById('badgeText'),
+  btnQuickSyncHeader: document.getElementById('btnQuickSyncHeader'),
+  btnQuickSyncCard: document.getElementById('btnQuickSyncCard'),
+  inputText1: document.getElementById('inputText1'),
+  charCount1: document.getElementById('charCount1'),
+  presetChips: document.querySelectorAll('.chip'),
+  btnClearInputs: document.querySelectorAll('.btn-clear'),
+  animRadios: document.querySelectorAll('input[name="animEffect"]'),
+  animOptions: document.querySelectorAll('.anim-option'),
+  speedSlider: document.getElementById('speedSlider'),
+  speedValueDisplay: document.getElementById('speedValueDisplay'),
+  clockDuration: document.getElementById('clockDuration'),
+  clockDurationDisplay: document.getElementById('clockDurationDisplay'),
+  textDuration: document.getElementById('textDuration'),
+  textDurationDisplay: document.getElementById('textDurationDisplay'),
+  segBtns: document.querySelectorAll('.seg-btn'),
+  brightnessSlider: document.getElementById('brightnessSlider'),
+  brightnessValueDisplay: document.getElementById('brightnessValueDisplay'),
+  toggleAutoDimming: document.getElementById('toggleAutoDimming'),
+  btnSendToESP: document.getElementById('btnSendToESP'),
+  btnSendFromModal: document.getElementById('btnSendFromModal'),
+  deviceSelect: document.getElementById('deviceSelect'),
+  btnAddDevice: document.getElementById('btnAddDevice'),
+  btnRefreshDevices: document.getElementById('btnRefreshDevices'),
+  deviceUidInput: document.getElementById('deviceUidInput'),
+  deviceNameInput: document.getElementById('deviceNameInput'),
+  addDeviceModal: document.getElementById('addDeviceModal'),
+  toastContainer: document.getElementById('toastContainer'),
+  jsonPayloadPreview: document.getElementById('jsonPayloadPreview'),
+  jsonPayloadModalPreview: document.getElementById('jsonPayloadModalPreview'),
+  btnCopyJson: document.getElementById('btnCopyJson'),
+  payloadModal: document.getElementById('payloadModal'),
+  btnOpenSettingsModal: document.getElementById('btnOpenSettingsModal'),
+  btnCloseModal: document.getElementById('btnCloseModal'),
+  btnDismissModal: document.getElementById('btnDismissModal')
+};
+
+window.toggleAccordion = function(header) {
+  header.parentElement.classList.toggle('open');
+};
+
+// ==================== AUTH ====================
+document.addEventListener('DOMContentLoaded', () => {
+  if (state.token && state.user) {
+    showMainApp();
+  } else {
+    showAuthScreen();
+  }
+  setupAuthListeners();
+  setupNavigationTabs();
+  setupEventListeners();
+  startClockTicker();
+});
+
+function showAuthScreen() {
+  if (el.authScreen) el.authScreen.classList.remove('hidden');
+  if (el.mainApp) el.mainApp.classList.add('hidden');
+}
+
+function showMainApp() {
+  if (el.authScreen) el.authScreen.classList.add('hidden');
+  if (el.mainApp) el.mainApp.classList.remove('hidden');
+  if (el.userName) el.userName.textContent = state.user.name || state.user.email;
+  loadDevices();
+  initSimulatorTheme();
+  startSimulatorCycle();
+  updateSimulatorUI();
+}
+
+function setupAuthListeners() {
+  let isRegister = false;
+
+  if (el.authToggle) {
+    el.authToggle.addEventListener('click', () => {
+      isRegister = !isRegister;
+      if (el.authSubmit) el.authSubmit.textContent = isRegister ? 'Daftar' : 'Masuk';
+      if (el.authToggle) el.authToggle.textContent = isRegister ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar';
+      if (el.registerFields) el.registerFields.classList.toggle('hidden', !isRegister);
+      if (el.authError) el.authError.textContent = '';
+    });
+  }
+
+  if (el.authForm) {
+    el.authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = el.authEmail.value.trim();
+      const password = el.authPassword.value;
+      const name = el.authName ? el.authName.value.trim() : '';
+
+      if (!email || !password) {
+        if (el.authError) el.authError.textContent = 'Email dan password wajib diisi';
+        return;
+      }
+
+      const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
+      const body = isRegister ? { email, password, name } : { email, password };
+
+      try {
+        if (el.authSubmit) el.authSubmit.disabled = true;
+        if (el.authError) el.authError.textContent = '';
+
+        const res = await fetch(`${API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          if (el.authError) el.authError.textContent = data.error || 'Terjadi kesalahan';
+          return;
+        }
+
+        state.token = data.token;
+        state.user = data.user;
+        localStorage.setItem('p10_token', data.token);
+        localStorage.setItem('p10_user', JSON.stringify(data.user));
+        showMainApp();
+      } catch (err) {
+        if (el.authError) el.authError.textContent = 'Gagal terhubung ke server';
+      } finally {
+        if (el.authSubmit) el.authSubmit.disabled = false;
+      }
+    });
+  }
+
+  if (el.btnLogout) {
+    el.btnLogout.addEventListener('click', () => {
+      state.token = null;
+      state.user = null;
+      state.devices = [];
+      state.activeDevice = null;
+      localStorage.removeItem('p10_token');
+      localStorage.removeItem('p10_user');
+      showAuthScreen();
+    });
+  }
+}
+
+// ==================== API HELPERS ====================
+async function apiFetch(path, options = {}) {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${state.token}`,
+      ...options.headers
+    }
+  });
+
+  if (res.status === 401) {
+    state.token = null;
+    state.user = null;
+    localStorage.removeItem('p10_token');
+    localStorage.removeItem('p10_user');
+    showAuthScreen();
+    throw new Error('Session expired');
+  }
+
+  return res;
+}
+
+// ==================== DEVICES ====================
+async function loadDevices() {
+  try {
+    const res = await apiFetch('/api/devices');
+    if (!res.ok) return;
+    state.devices = await res.json();
+    renderDeviceList();
+
+    if (state.devices.length > 0 && !state.activeDevice) {
+      selectDevice(state.devices[0].id);
+    }
+  } catch (err) {
+    console.error('Load devices error:', err);
+  }
+}
+
+function renderDeviceList() {
+  if (!el.deviceSelect) return;
+  el.deviceSelect.innerHTML = '';
+
+  if (state.devices.length === 0) {
+    el.deviceSelect.innerHTML = '<option value="">Belum ada perangkat</option>';
+    return;
+  }
+
+  state.devices.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.textContent = `${d.name} (${d.online ? 'Online' : 'Offline'})`;
+    if (state.activeDevice && state.activeDevice.id === d.id) opt.selected = true;
+    el.deviceSelect.appendChild(opt);
+  });
+}
+
+function selectDevice(id) {
+  const device = state.devices.find(d => d.id === parseInt(id));
+  if (!device) return;
+  state.activeDevice = device;
+
+  state.text1 = device.text1 || "SELAMAT DATANG";
+  state.anim = device.anim || "scroll_left";
+  state.speed = device.speed || 5;
+  state.clockDuration = device.clock_duration || 10;
+  state.textDuration = device.text_duration || 8;
+  state.displayMode = device.display_mode || "cycle";
+  state.brightness = device.brightness || 80;
+  state.autoDimming = device.auto_dimming || false;
+
+  if (el.inputText1) el.inputText1.value = state.text1;
+  if (el.speedSlider) el.speedSlider.value = state.speed;
+  if (el.clockDuration) el.clockDuration.value = state.clockDuration;
+  if (el.textDuration) el.textDuration.value = state.textDuration;
+  if (el.brightnessSlider) el.brightnessSlider.value = state.brightness;
+  if (el.toggleAutoDimming) el.toggleAutoDimming.checked = state.autoDimming;
+
+  el.animRadios.forEach(r => {
+    const wrapper = r.closest('.anim-option');
+    r.checked = r.value === state.anim;
+    if (wrapper) wrapper.classList.toggle('active', r.value === state.anim);
+  });
+
+  el.segBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === state.displayMode));
+
+  if (el.badgeText) {
+    const status = device.online ? 'Online' : 'Offline';
+    el.badgeText.textContent = `${device.name} \u2022 ${status}`;
+  }
+
+  updateBadgeLabels();
+  updateSimulatorUI();
+  startSimulatorCycle();
+  updateJsonPayloadPreviews();
+}
+
+async function addDevice() {
+  const uid = el.deviceUidInput ? el.deviceUidInput.value.trim() : '';
+  const name = el.deviceNameInput ? el.deviceNameInput.value.trim() : 'P10 Panel';
+  if (!uid) {
+    showToast('Masukkan Device UID', 'error');
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/devices', {
+      method: 'POST',
+      body: JSON.stringify({ device_uid: uid, name })
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      showToast(data.error || 'Gagal menambah perangkat', 'error');
+      return;
+    }
+
+    showToast('Perangkat berhasil ditambahkan!', 'success');
+    closeAddDeviceModal();
+    await loadDevices();
+  } catch (err) {
+    showToast('Gagal terhubung ke server', 'error');
+  }
+}
+
+function openAddDeviceModal() {
+  if (el.addDeviceModal) el.addDeviceModal.classList.remove('hidden');
+}
+
+function closeAddDeviceModal() {
+  if (el.addDeviceModal) el.addDeviceModal.classList.add('hidden');
+  if (el.deviceUidInput) el.deviceUidInput.value = '';
+  if (el.deviceNameInput) el.deviceNameInput.value = '';
+}
+
+// ==================== NAVIGATION ====================
+function setupNavigationTabs() {
+  el.navItems.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      el.navItems.forEach(i => i.classList.remove('active'));
+      btn.classList.add('active');
+      el.tabContents.forEach(p => {
+        p.classList.remove('active');
+        if (p.id === `tabContent${capitalize(tab)}`) p.classList.add('active');
+      });
+      if (tab === 'perangkat') updateJsonPayloadPreviews();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+}
+
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+// ==================== CLOCK ====================
+function startClockTicker() {
+  updateTimeDisplays();
+  setInterval(updateTimeDisplays, 1000);
+}
+
+function getFormattedTime(date = new Date()) {
+  return {
+    hours: String(date.getHours()).padStart(2, '0'),
+    minutes: String(date.getMinutes()).padStart(2, '0'),
+    seconds: String(date.getSeconds()).padStart(2, '0')
+  };
+}
+
+function getFormattedDate(date = new Date()) {
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  return days[date.getDay()];
+}
+
+function updateTimeDisplays() {
+  const { hours, minutes } = getFormattedTime();
+  if (state.simCurrentView === 'clock') {
+    if (el.simTimeDisplay) el.simTimeDisplay.textContent = hours;
+    if (el.simMinDisplay) el.simMinDisplay.textContent = minutes;
+    if (el.simDateDisplay) el.simDateDisplay.textContent = getFormattedDate();
+  }
+}
+
+// ==================== SIMULATOR ====================
+function initSimulatorTheme() {
+  if (el.p10Matrix) el.p10Matrix.className = `p10-matrix theme-${state.themeColor}`;
+  el.colorDots.forEach(d => d.classList.toggle('active', d.dataset.color === state.themeColor));
+}
+
+function updateSimulatorUI() {
+  if (!el.simMarqueeContent) return;
+  el.simMarqueeContent.textContent = state.text1 || "P10 ESP8266";
+  el.simMarqueeContent.className = 'marquee-text';
+
+  const dur = Math.max(2.5, 22 - (state.speed * 2.0));
+  el.simMarqueeContent.style.animationDuration = `${dur}s`;
+
+  if (state.anim === 'scroll_left' || state.anim === 'scroll_right') {
+    if (el.matrixMarqueeView) el.matrixMarqueeView.classList.add('is-scroll');
+    el.simMarqueeContent.classList.add(state.anim === 'scroll_left' ? 'scroll-left' : 'scroll-right');
+  } else {
+    if (el.matrixMarqueeView) el.matrixMarqueeView.classList.remove('is-scroll');
+  }
+
+  if (el.simStatusInfo) {
+    const names = { scroll_left: 'Scroll Kiri', scroll_right: 'Scroll Kanan', static: 'Diam' };
+    el.simStatusInfo.textContent = `${names[state.anim] || 'Scroll'} \u2022 Speed Lv ${state.speed} \u2022 Terang ${state.brightness}%`;
+  }
+}
+
+function startSimulatorCycle() {
+  if (state.simTimer) clearTimeout(state.simTimer);
+  if (state.displayMode === 'clock_only') { switchSimView('clock'); return; }
+  if (state.displayMode === 'text_only') { switchSimView('marquee'); return; }
+
+  let isClock = true;
+  switchSimView('clock');
+
+  function scheduleNext() {
+    const delay = (isClock ? state.clockDuration : state.textDuration) * 1000;
+    state.simTimer = setTimeout(() => {
+      isClock = !isClock;
+      if (!isClock) { updateSimulatorUI(); switchSimView('marquee'); }
+      else { switchSimView('clock'); }
+      scheduleNext();
+    }, delay);
+  }
+  scheduleNext();
+}
+
+function switchSimView(view) {
+  state.simCurrentView = view;
+  if (view === 'clock') {
+    if (el.matrixClockView) el.matrixClockView.classList.remove('hidden');
+    if (el.matrixMarqueeView) el.matrixMarqueeView.classList.add('hidden');
+    if (el.simModeLabel) el.simModeLabel.textContent = "Mode: Jam";
+    updateTimeDisplays();
+  } else {
+    if (el.matrixClockView) el.matrixClockView.classList.add('hidden');
+    if (el.matrixMarqueeView) el.matrixMarqueeView.classList.remove('hidden');
+    if (el.simModeLabel) el.simModeLabel.textContent = "Mode: Teks";
+    updateSimulatorUI();
+  }
+}
+
+// ==================== EVENT LISTENERS ====================
+function setupEventListeners() {
+  if (el.inputText1) {
+    el.inputText1.addEventListener('input', (e) => {
+      state.text1 = e.target.value;
+      updateCharCounts();
+      updateSimulatorUI();
+    });
+  }
+
+  el.btnClearInputs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
+      if (input) { input.value = ''; input.dispatchEvent(new Event('input')); }
+    });
+  });
+
+  el.presetChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (el.inputText1) {
+        el.inputText1.value = chip.dataset.text;
+        el.inputText1.dispatchEvent(new Event('input'));
+        showToast(`Template "${chip.textContent}" diterapkan!`, 'info');
+      }
+    });
+  });
+
+  el.animRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        state.anim = e.target.value;
+        el.animOptions.forEach(o => o.classList.remove('active'));
+        const wrapper = e.target.closest('.anim-option');
+        if (wrapper) wrapper.classList.add('active');
+        updateSimulatorUI();
+      }
+    });
+  });
+
+  if (el.speedSlider) {
+    el.speedSlider.addEventListener('input', (e) => {
+      state.speed = parseInt(e.target.value, 10);
+      updateBadgeLabels();
+      updateSimulatorUI();
+    });
+  }
+
+  if (el.clockDuration) {
+    el.clockDuration.addEventListener('input', (e) => {
+      state.clockDuration = parseInt(e.target.value, 10);
+      updateBadgeLabels();
+      startSimulatorCycle();
+    });
+  }
+
+  if (el.textDuration) {
+    el.textDuration.addEventListener('input', (e) => {
+      state.textDuration = parseInt(e.target.value, 10);
+      updateBadgeLabels();
+      startSimulatorCycle();
+    });
+  }
+
+  el.segBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      el.segBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.displayMode = btn.dataset.mode;
+      startSimulatorCycle();
+    });
+  });
+
+  if (el.brightnessSlider) {
+    el.brightnessSlider.addEventListener('input', (e) => {
+      state.brightness = parseInt(e.target.value, 10);
+      updateBadgeLabels();
+    });
+  }
+
+  if (el.toggleAutoDimming) {
+    el.toggleAutoDimming.addEventListener('change', (e) => {
+      state.autoDimming = e.target.checked;
+    });
+  }
+
+  el.colorDots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      state.themeColor = dot.dataset.color;
+      initSimulatorTheme();
+    });
+  });
+
+  if (el.btnToggleSimMode) {
+    el.btnToggleSimMode.addEventListener('click', () => {
+      switchSimView(state.simCurrentView === 'clock' ? 'marquee' : 'clock');
+    });
+  }
+
+  if (el.btnQuickSyncHeader) el.btnQuickSyncHeader.addEventListener('click', () => sendTimeSync());
+  if (el.btnQuickSyncCard) el.btnQuickSyncCard.addEventListener('click', () => sendTimeSync());
+
+  if (el.btnSendToESP) el.btnSendToESP.addEventListener('click', () => sendFullConfig());
+  if (el.btnSendFromModal) el.btnSendFromModal.addEventListener('click', () => sendFullConfig());
+
+  if (el.btnCopyJson && el.jsonPayloadPreview) {
+    el.btnCopyJson.addEventListener('click', () => {
+      navigator.clipboard.writeText(el.jsonPayloadPreview.textContent)
+        .then(() => showToast('JSON disalin!', 'success'))
+        .catch(() => showToast('Gagal menyalin', 'error'));
+    });
+  }
+
+  if (el.btnOpenSettingsModal) el.btnOpenSettingsModal.addEventListener('click', openPayloadModal);
+  if (el.btnCloseModal) el.btnCloseModal.addEventListener('click', closePayloadModal);
+  if (el.btnDismissModal) el.btnDismissModal.addEventListener('click', closePayloadModal);
+  if (el.payloadModal) {
+    el.payloadModal.addEventListener('click', (e) => {
+      if (e.target === el.payloadModal) closePayloadModal();
+    });
+  }
+
+  if (el.deviceSelect) {
+    el.deviceSelect.addEventListener('change', (e) => {
+      selectDevice(e.target.value);
+    });
+  }
+
+  if (el.btnAddDevice) el.btnAddDevice.addEventListener('click', openAddDeviceModal);
+  if (el.btnRefreshDevices) el.btnRefreshDevices.addEventListener('click', loadDevices);
+
+  if (el.addDeviceModal) {
+    el.addDeviceModal.addEventListener('click', (e) => {
+      if (e.target === el.addDeviceModal) closeAddDeviceModal();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'btnConfirmAddDevice') addDevice();
+    if (e.target.id === 'btnCancelAddDevice') closeAddDeviceModal();
+  });
+}
+
+function updateCharCounts() {
+  if (el.charCount1 && el.inputText1) el.charCount1.textContent = `${el.inputText1.value.length}/150`;
+}
+
+function updateBadgeLabels() {
+  if (el.speedValueDisplay) el.speedValueDisplay.textContent = `Level ${state.speed}`;
+  if (el.clockDurationDisplay) el.clockDurationDisplay.textContent = `${state.clockDuration}s`;
+  if (el.textDurationDisplay) el.textDurationDisplay.textContent = `${state.textDuration}s`;
+  if (el.brightnessValueDisplay) el.brightnessValueDisplay.textContent = `${state.brightness}%`;
+}
+
+function updateJsonPayloadPreviews() {
+  const payload = buildPayload();
+  const formatted = JSON.stringify(payload, null, 2);
+  if (el.jsonPayloadPreview) el.jsonPayloadPreview.textContent = formatted;
+  if (el.jsonPayloadModalPreview) el.jsonPayloadModalPreview.textContent = formatted;
+}
+
+// ==================== CLOUD API ====================
+function buildPayload() {
+  return {
+    text1: state.text1,
+    anim: state.anim,
+    speed: state.speed,
+    clock_duration: state.clockDuration,
+    text_duration: state.textDuration,
+    display_mode: state.displayMode,
+    brightness: state.brightness,
+    auto_dimming: state.autoDimming
+  };
+}
+
+async function sendFullConfig() {
+  if (!state.activeDevice) {
+    showToast('Pilih perangkat terlebih dahulu', 'error');
+    return;
+  }
+
+  const payload = buildPayload();
+  showToast('Mengirim ke Panel P10...', 'info');
+
+  try {
+    const res = await apiFetch(`/api/devices/${state.activeDevice.id}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      showToast(data.error || 'Gagal mengirim', 'error');
+      return;
+    }
+
+    showToast('Pengaturan berhasil dikirim!', 'success');
+
+    const updated = await res.json();
+    const idx = state.devices.findIndex(d => d.id === state.activeDevice.id);
+    if (idx >= 0) {
+      Object.assign(state.devices[idx], payload);
+    }
+  } catch (err) {
+    showToast('Gagal terhubung ke server', 'error');
+  }
+}
+
+async function sendTimeSync() {
+  if (!state.activeDevice) {
+    showToast('Pilih perangkat terlebih dahulu', 'error');
+    return;
+  }
+
+  showToast('Menyinkronkan waktu...', 'info');
+
+  try {
+    const res = await apiFetch(`/api/devices/${state.activeDevice.id}/sync-time`, {
+      method: 'POST'
+    });
+
+    showToast(res.ok ? 'Waktu tersinkron!' : 'Gagal sync waktu', res.ok ? 'success' : 'error');
+  } catch (err) {
+    showToast('Gagal terhubung ke server', 'error');
+  }
+}
+
+// ==================== MODAL & TOAST ====================
+function openPayloadModal() {
+  if (!el.payloadModal) return;
+  updateJsonPayloadPreviews();
+  el.payloadModal.classList.remove('hidden');
+}
+
+function closePayloadModal() {
+  if (el.payloadModal) el.payloadModal.classList.add('hidden');
+}
+
+function showToast(message, type = 'info') {
+  if (!el.toastContainer) return;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+    error: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    info: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+  };
+  toast.innerHTML = `${icons[type] || icons.info} <span>${message}</span>`;
+  el.toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.2s, transform 0.2s';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-8px)';
+    setTimeout(() => toast.remove(), 200);
+  }, 3000);
+}

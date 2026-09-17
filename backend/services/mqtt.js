@@ -29,6 +29,7 @@ function connectMQTT() {
       const parts = topic.split('/');
       const deviceUID = parts[1];
       const payload = JSON.parse(message.toString());
+      console.log(`[MQTT] Status from ${deviceUID}: ${JSON.stringify(payload)}`);
       handleStatus(deviceUID, payload);
     } catch (e) {
       console.error('[MQTT] Parse error:', e.message);
@@ -47,10 +48,11 @@ function connectMQTT() {
 async function handleStatus(deviceUID, payload) {
   const { pool } = require('../config/database');
   try {
-    await pool.query(
+    const result = await pool.query(
       'UPDATE devices SET online = $1, last_seen = NOW() WHERE device_uid = $2',
       [payload.online === true, deviceUID]
     );
+    console.log(`[MQTT] DB update: ${result.rowCount} row(s) for UID=${deviceUID}, online=${payload.online}`);
   } catch (e) {
     console.error('[MQTT] Status update error:', e.message);
   }

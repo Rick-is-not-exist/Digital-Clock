@@ -1286,6 +1286,11 @@ code {
   color: var(--accent);
 }
 
+.btn-icon.btn-danger:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
 /* === SIDEBAR USER === */
 .sidebar-user {
   display: flex;

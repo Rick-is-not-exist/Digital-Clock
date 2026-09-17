@@ -71,6 +71,7 @@ const el = {
   btnSendFromModal: document.getElementById('btnSendFromModal'),
   deviceSelect: document.getElementById('deviceSelect'),
   btnAddDevice: document.getElementById('btnAddDevice'),
+  btnDeleteDevice: document.getElementById('btnDeleteDevice'),
   btnRefreshDevices: document.getElementById('btnRefreshDevices'),
   deviceUidInput: document.getElementById('deviceUidInput'),
   deviceNameInput: document.getElementById('deviceNameInput'),
@@ -322,6 +323,27 @@ function closeAddDeviceModal() {
   if (el.deviceNameInput) el.deviceNameInput.value = '';
 }
 
+async function deleteDevice() {
+  if (!state.activeDevice) {
+    showToast('Pilih perangkat terlebih dahulu', 'error');
+    return;
+  }
+  if (!confirm(`Hapus perangkat "${state.activeDevice.name}"?`)) return;
+
+  try {
+    const res = await apiFetch(`/api/devices/${state.activeDevice.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      showToast('Gagal menghapus perangkat', 'error');
+      return;
+    }
+    showToast('Perangkat dihapus!', 'success');
+    state.activeDevice = null;
+    await loadDevices();
+  } catch (err) {
+    showToast('Gagal terhubung ke server', 'error');
+  }
+}
+
 // ==================== NAVIGATION ====================
 function setupNavigationTabs() {
   el.navItems.forEach(btn => {
@@ -559,6 +581,7 @@ function setupEventListeners() {
   }
 
   if (el.btnAddDevice) el.btnAddDevice.addEventListener('click', openAddDeviceModal);
+  if (el.btnDeleteDevice) el.btnDeleteDevice.addEventListener('click', deleteDevice);
   if (el.btnRefreshDevices) el.btnRefreshDevices.addEventListener('click', loadDevices);
 
   if (el.addDeviceModal) {

@@ -293,8 +293,6 @@ int getDayOfWeek(int y, int m, int d) {
 }
 
 void renderClockOnP10() {
-  dmd.clear();
-  
   char hourBuff[4];
   char minBuff[4];
   char colonChar[2] = ":";

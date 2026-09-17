@@ -2,7 +2,7 @@
  * P10 IoT Controller - Cloud Edition
  */
 
-const API_URL = 'https://p10iot.up.railway.app';
+const API_URL = 'https://digital-clock-production.up.railway.app';
 
 const state = {
   token: localStorage.getItem('p10_token') || null,

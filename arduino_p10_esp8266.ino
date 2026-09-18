@@ -52,6 +52,7 @@ String display_mode = "cycle";
 int brightness_pwm = 102;
 bool format_24h = true;
 bool show_seconds = true;
+bool panel_power = true;
 
 // Variabel Waktu Internal
 int current_hour = 12;
@@ -78,6 +79,8 @@ bool cacheValid = false;
 // Timing
 unsigned long lastStatusSent = 0;
 unsigned long lastMqttReconnect = 0;
+unsigned long lastNtpSync = 0;
+#define NTP_RESYNC_INTERVAL 3600000
 bool mqttConnected = false;
 
 // ==================== SETUP ====================
@@ -117,6 +120,16 @@ void setup() {
   }
   if (now >= 8 * 3600) {
     Serial.println("\n[NTP] Time synced!");
+    struct tm* t = localtime(&now);
+    current_hour = t->tm_hour;
+    current_min = t->tm_min;
+    current_sec = t->tm_sec;
+    current_day = t->tm_mday;
+    current_month = t->tm_mon + 1;
+    current_year = t->tm_year + 1900;
+    Serial.printf("[NTP] Time set to: %02d:%02d:%02d %02d/%02d/%04d\n",
+                  current_hour, current_min, current_sec,
+                  current_day, current_month, current_year);
   } else {
     Serial.println("\n[NTP] Sync timeout, continuing...");
   }
@@ -133,6 +146,7 @@ void setup() {
   // Connect to MQTT
   connectMQTT();
 
+  lastNtpSync = millis();
   Serial.println("[SETUP] Ready!");
 }
 
@@ -220,6 +234,21 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   if (doc.containsKey("format_24h")) format_24h = doc["format_24h"].as<bool>();
   if (doc.containsKey("show_seconds")) show_seconds = doc["show_seconds"].as<bool>();
 
+  if (doc.containsKey("power")) {
+    bool newPower = doc["power"].as<bool>();
+    if (newPower && !panel_power) {
+      panel_power = true;
+      dmd.setBrightness(brightness_pwm);
+      Serial.println("[MQTT] Panel ON");
+    } else if (!newPower && panel_power) {
+      panel_power = false;
+      dmd.setBrightness(0);
+      dmd.clear();
+      Serial.println("[MQTT] Panel OFF");
+    }
+  }
+
+  cacheValid = false;
   Serial.println("[MQTT] Settings applied!");
 }
 
@@ -274,6 +303,7 @@ int getDayOfWeek(int y, int m, int d) {
 }
 
 void renderClockOnP10() {
+  dmd.clear();
   char hourBuff[4];
   char minBuff[4];
   char colonChar[2] = ":";
@@ -347,68 +377,85 @@ void loop() {
     sendStatus();
   }
 
-  // Display logic
-  updateClockTicks();
-
-  unsigned long currentMillis = millis();
-  unsigned long activeDuration = (is_showing_clock ? clock_duration : text_duration) * 1000;
-
-  if (display_mode == "cycle") {
-    if (currentMillis - last_mode_switch >= activeDuration) {
-      last_mode_switch = currentMillis;
-      is_showing_clock = !is_showing_clock;
-      scroll_x = 32 * DISPLAYS_WIDE;
-      last_scroll_tick = millis();
-      dmd.clear();
+  // Periodic NTP re-sync (every hour)
+  if (millis() - lastNtpSync > NTP_RESYNC_INTERVAL) {
+    lastNtpSync = millis();
+    time_t now = time(nullptr);
+    if (now > 8 * 3600) {
+      struct tm* t = localtime(&now);
+      current_hour = t->tm_hour;
+      current_min = t->tm_min;
+      current_sec = t->tm_sec;
+      current_day = t->tm_mday;
+      current_month = t->tm_mon + 1;
+      current_year = t->tm_year + 1900;
+      Serial.printf("[NTP] Re-synced: %02d:%02d:%02d\n", current_hour, current_min, current_sec);
     }
-  } else if (display_mode == "clock_only") {
-    is_showing_clock = true;
-  } else if (display_mode == "text_only") {
-    is_showing_clock = false;
   }
 
-  if (is_showing_clock) {
-    renderClockOnP10();
-  } else {
-    // Recalculate cache when text/anim changes
-    if (text1 != last_text1 || anim != last_anim || !cacheValid) {
-      fitsPanelCache = checkTextFitsPanel(text1.c_str(), text1.length());
-      last_text1 = text1;
-      last_anim = anim;
-      cacheValid = true;
-      scroll_x = 32 * DISPLAYS_WIDE;
-      last_scroll_tick = millis();
+  // Display logic (only when panel is on)
+  if (panel_power) {
+    updateClockTicks();
+
+    unsigned long currentMillis = millis();
+    unsigned long activeDuration = (is_showing_clock ? clock_duration : text_duration) * 1000;
+
+    if (display_mode == "cycle") {
+      if (currentMillis - last_mode_switch >= activeDuration) {
+        last_mode_switch = currentMillis;
+        is_showing_clock = !is_showing_clock;
+        scroll_x = 32 * DISPLAYS_WIDE;
+        last_scroll_tick = millis();
+        dmd.clear();
+      }
+    } else if (display_mode == "clock_only") {
+      is_showing_clock = true;
+    } else if (display_mode == "text_only") {
+      is_showing_clock = false;
     }
 
-    dmd.setBrightness(brightness_pwm);
-    bool useStatic = (fitsPanelCache && anim == "static");
-
-    dmd.clear();
-
-    if (useStatic) {
-      dmd.setFont(ElektronMart5x6);
-      int text_width = dmd.textWidth(text1.c_str(), text1.length());
-      int center_x = (32 * DISPLAYS_WIDE - text_width) / 2;
-      if (center_x < 0) center_x = 0;
-      int center_y = (16 - 8) / 2;
-      dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
+    if (is_showing_clock) {
+      renderClockOnP10();
     } else {
-      dmd.setFont(EMSans8x16);
-      int text_width = dmd.textWidth(text1.c_str(), text1.length());
-      dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());
-
-      if (millis() - last_scroll_tick >= speed_ms) {
+      // Recalculate cache when text/anim changes
+      if (text1 != last_text1 || anim != last_anim || !cacheValid) {
+        fitsPanelCache = checkTextFitsPanel(text1.c_str(), text1.length());
+        last_text1 = text1;
+        last_anim = anim;
+        cacheValid = true;
+        scroll_x = 32 * DISPLAYS_WIDE;
         last_scroll_tick = millis();
-        if (anim == "scroll_right") {
-          scroll_x++;
-          if (scroll_x > 32 * DISPLAYS_WIDE) scroll_x = -text_width;
-        } else {
-          scroll_x--;
-          if (scroll_x < -text_width) scroll_x = 32 * DISPLAYS_WIDE;
+      }
+
+      bool useStatic = (fitsPanelCache && anim == "static");
+
+      dmd.clear();
+
+      if (useStatic) {
+        dmd.setFont(ElektronMart5x6);
+        int text_width = dmd.textWidth(text1.c_str(), text1.length());
+        int center_x = (32 * DISPLAYS_WIDE - text_width) / 2;
+        if (center_x < 0) center_x = 0;
+        int center_y = (16 - 8) / 2;
+        dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
+      } else {
+        dmd.setFont(EMSans8x16);
+        int text_width = dmd.textWidth(text1.c_str(), text1.length());
+        dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());
+
+        if (millis() - last_scroll_tick >= speed_ms) {
+          last_scroll_tick = millis();
+          if (anim == "scroll_right") {
+            scroll_x++;
+            if (scroll_x > 32 * DISPLAYS_WIDE) scroll_x = -text_width;
+          } else {
+            scroll_x--;
+            if (scroll_x < -text_width) scroll_x = 32 * DISPLAYS_WIDE;
+          }
+        }
       }
     }
-  }
 
-  dmd.loop();
-}
+    dmd.loop();
+  }
 }

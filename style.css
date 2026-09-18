@@ -203,6 +203,39 @@ html, body {
   color: var(--accent-light);
 }
 
+.btn-sidebar-power {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-sidebar-power:hover {
+  background: var(--accent-muted);
+  border-color: var(--border-focus);
+  color: var(--accent-light);
+}
+
+.btn-sidebar-power.off {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.btn-sidebar-power.off:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
 /* ==========================================================================
    MAIN CONTENT
    ========================================================================== */
@@ -657,7 +690,7 @@ html, body {
 /* Anim Options - 4 in a row */
 .anim-options {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.35rem;
 }
 
@@ -961,6 +994,15 @@ code {
   color: var(--accent-light);
 }
 
+.btn-block.off {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.btn-block.off:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
 .btn-copy {
   background: transparent;
   border: none;
@@ -1139,6 +1181,7 @@ code {
   .nav-item { padding: 0.35rem 0.5rem; font-size: 0.68rem; }
 
   .anim-options { grid-template-columns: repeat(2, 1fr); }
+  .anim-option:last-child { grid-column: 1 / -1; justify-self: center; max-width: 50%; }
   .anim-content { flex-direction: row; justify-content: center; }
 }
 

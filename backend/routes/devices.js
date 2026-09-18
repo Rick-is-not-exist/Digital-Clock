@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     const result = await pool.query(
       `SELECT d.id, d.device_uid, d.name, d.online, d.last_seen, d.created_at,
               ds.text1, ds.anim, ds.speed, ds.clock_duration, ds.text_duration,
-              ds.display_mode, ds.brightness, ds.auto_dimming
+              ds.display_mode, ds.brightness, ds.auto_dimming, COALESCE(ds.power, true) as power
        FROM devices d
        LEFT JOIN device_settings ds ON ds.device_id = d.id
        WHERE d.user_id = $1
@@ -63,7 +63,7 @@ router.get('/:id', async (req, res) => {
     const result = await pool.query(
       `SELECT d.id, d.device_uid, d.name, d.online, d.last_seen, d.created_at,
               ds.text1, ds.anim, ds.speed, ds.clock_duration, ds.text_duration,
-              ds.display_mode, ds.brightness, ds.auto_dimming
+              ds.display_mode, ds.brightness, ds.auto_dimming, COALESCE(ds.power, true) as power
        FROM devices d
        LEFT JOIN device_settings ds ON ds.device_id = d.id
        WHERE d.id = $1 AND d.user_id = $2`,
@@ -89,11 +89,11 @@ router.put('/:id/settings', async (req, res) => {
       return res.status(404).json({ error: 'Device not found' });
     }
 
-    const { text1, anim, speed, clock_duration, text_duration, display_mode, brightness, auto_dimming } = req.body;
+    const { text1, anim, speed, clock_duration, text_duration, display_mode, brightness, auto_dimming, power } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO device_settings (device_id, text1, anim, speed, clock_duration, text_duration, display_mode, brightness, auto_dimming, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      `INSERT INTO device_settings (device_id, text1, anim, speed, clock_duration, text_duration, display_mode, brightness, auto_dimming, power, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
        ON CONFLICT (device_id) DO UPDATE SET
          text1 = COALESCE($2, device_settings.text1),
          anim = COALESCE($3, device_settings.anim),
@@ -103,9 +103,10 @@ router.put('/:id/settings', async (req, res) => {
          display_mode = COALESCE($7, device_settings.display_mode),
          brightness = COALESCE($8, device_settings.brightness),
          auto_dimming = COALESCE($9, device_settings.auto_dimming),
+         power = COALESCE($10, device_settings.power),
          updated_at = NOW()
        RETURNING *`,
-      [id, text1, anim, speed, clock_duration, text_duration, display_mode, brightness, auto_dimming]
+      [id, text1, anim, speed, clock_duration, text_duration, display_mode, brightness, auto_dimming, power]
     );
 
     const deviceUID = deviceCheck.rows[0].device_uid;
@@ -119,6 +120,7 @@ router.put('/:id/settings', async (req, res) => {
       text_duration: settings.text_duration,
       mode: settings.display_mode,
       brightness_pwm: Math.round((settings.brightness / 100) * 255),
+      power: settings.power !== false,
       format_24h: true,
       show_seconds: true
     };

@@ -17,6 +17,7 @@ const state = {
   displayMode: "cycle",
   brightness: 40,
   autoDimming: false,
+  power: true,
   themeColor: "red",
   simCurrentView: "clock",
   simTimer: null
@@ -51,6 +52,10 @@ const el = {
   badgeText: document.getElementById('badgeText'),
   btnQuickSyncHeader: document.getElementById('btnQuickSyncHeader'),
   btnQuickSyncCard: document.getElementById('btnQuickSyncCard'),
+  btnPowerToggle: document.getElementById('btnPowerToggle'),
+  btnPowerToggleCard: document.getElementById('btnPowerToggleCard'),
+  powerStatus: document.getElementById('powerStatus'),
+  powerStatusCard: document.getElementById('powerStatusCard'),
   inputText1: document.getElementById('inputText1'),
   charCount1: document.getElementById('charCount1'),
   presetChips: document.querySelectorAll('.chip'),
@@ -282,6 +287,7 @@ function selectDevice(id) {
   state.displayMode = device.display_mode || "cycle";
   state.brightness = device.brightness || 80;
   state.autoDimming = device.auto_dimming || false;
+  state.power = device.power !== false;
 
   if (el.inputText1) el.inputText1.value = state.text1;
   if (el.speedSlider) el.speedSlider.value = state.speed;
@@ -305,6 +311,7 @@ function selectDevice(id) {
 
   updateBadgeLabels();
   updateSimulatorUI();
+  updatePowerUI();
   startSimulatorCycle();
   updateJsonPayloadPreviews();
 }
@@ -577,6 +584,8 @@ function setupEventListeners() {
 
   if (el.btnQuickSyncHeader) el.btnQuickSyncHeader.addEventListener('click', () => sendTimeSync());
   if (el.btnQuickSyncCard) el.btnQuickSyncCard.addEventListener('click', () => sendTimeSync());
+  if (el.btnPowerToggle) el.btnPowerToggle.addEventListener('click', () => togglePower());
+  if (el.btnPowerToggleCard) el.btnPowerToggleCard.addEventListener('click', () => togglePower());
 
   if (el.btnSendToESP) el.btnSendToESP.addEventListener('click', () => sendFullConfig());
   if (el.btnSendFromModal) el.btnSendFromModal.addEventListener('click', () => sendFullConfig());
@@ -648,7 +657,8 @@ function buildPayload() {
     text_duration: state.textDuration,
     display_mode: state.displayMode,
     brightness: state.brightness,
-    auto_dimming: state.autoDimming
+    auto_dimming: state.autoDimming,
+    power: state.power
   };
 }
 
@@ -701,6 +711,45 @@ async function sendTimeSync() {
     showToast(res.ok ? 'Waktu tersinkron!' : 'Gagal sync waktu', res.ok ? 'success' : 'error');
   } catch (err) {
     showToast('Gagal terhubung ke server', 'error');
+  }
+}
+
+async function togglePower() {
+  if (!state.activeDevice) {
+    showToast('Pilih perangkat terlebih dahulu', 'error');
+    return;
+  }
+
+  const newPower = !state.power;
+  state.power = newPower;
+  updatePowerUI();
+
+  try {
+    const res = await apiFetch(`/api/devices/${state.activeDevice.id}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify({ power: newPower })
+    });
+    showToast(newPower ? 'Panel dinyalakan' : 'Panel dimatikan', 'success');
+  } catch (err) {
+    state.power = !newPower;
+    updatePowerUI();
+    showToast('Gagal mengubah power', 'error');
+  }
+}
+
+function updatePowerUI() {
+  const isOn = state.power;
+  if (el.btnPowerToggle) {
+    el.btnPowerToggle.classList.toggle('off', !isOn);
+  }
+  if (el.btnPowerToggleCard) {
+    el.btnPowerToggleCard.classList.toggle('off', !isOn);
+  }
+  if (el.powerStatus) {
+    el.powerStatus.textContent = isOn ? 'ON' : 'OFF';
+  }
+  if (el.powerStatusCard) {
+    el.powerStatusCard.textContent = isOn ? 'ON' : 'OFF';
   }
 }
 

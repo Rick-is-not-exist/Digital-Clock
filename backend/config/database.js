@@ -39,6 +39,7 @@ async function initDB() {
         display_mode VARCHAR(20) DEFAULT 'cycle',
         brightness INTEGER DEFAULT 80,
         auto_dimming BOOLEAN DEFAULT false,
+        power BOOLEAN DEFAULT true,
         updated_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -49,6 +50,9 @@ async function initDB() {
         payload JSONB,
         sent_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+    await client.query(`
+      ALTER TABLE device_settings ADD COLUMN IF NOT EXISTS power BOOLEAN DEFAULT true
     `);
     console.log('[DB] Tables initialized');
   } finally {

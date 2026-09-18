@@ -282,7 +282,7 @@ function selectDevice(id) {
   state.clockDuration = device.clock_duration || 10;
   state.textDuration = device.text_duration || 8;
   state.displayMode = device.display_mode || "cycle";
-  state.brightness = device.brightness || 80;
+  state.brightness = device.brightness || 20;
   state.autoDimming = device.auto_dimming || false;
   state.power = device.power !== false;
 

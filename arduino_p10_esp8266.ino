@@ -53,6 +53,7 @@ int brightness_pwm = 51;
 bool format_24h = true;
 bool show_seconds = true;
 bool panel_power = true;
+bool displayDirty = true;
 
 // Variabel Waktu Internal
 int current_hour = 12;
@@ -159,6 +160,7 @@ void connectWiFi() {
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_TIMEOUT) {
     Serial.print(".");
+    dmd.loop();
     delay(500);
   }
 
@@ -193,12 +195,7 @@ void connectMQTT() {
     // Publish online status
     mqtt.publish(statusTopic.c_str(), "{\"online\":true}", true);
 
-    // Show success on panel
-    dmd.clear();
-    dmd.setFont(ElektronMart5x6);
-    dmd.drawText(2, 4, "CONN", 4);
-    delay(1000);
-    dmd.clear();
+    Serial.println("[MQTT] Ready!");
   } else {
     Serial.printf("[MQTT] Failed, rc=%d\n", mqtt.state());
     mqttConnected = false;
@@ -249,6 +246,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   }
 
   cacheValid = false;
+  displayDirty = true;
   Serial.println("[MQTT] Settings applied!");
 }
 
@@ -303,7 +301,6 @@ int getDayOfWeek(int y, int m, int d) {
 }
 
 void renderClockOnP10() {
-  dmd.clear();
   char hourBuff[4];
   char minBuff[4];
   char colonChar[2] = ":";
@@ -354,10 +351,11 @@ void renderClockOnP10() {
 
 // ==================== LOOP ====================
 void loop() {
+  dmd.loop();
+
   // WiFi reconnect
   if (WiFi.status() != WL_CONNECTED) {
     connectWiFi();
-    return;
   }
 
   // MQTT reconnect
@@ -406,6 +404,7 @@ void loop() {
         is_showing_clock = !is_showing_clock;
         scroll_x = 32 * DISPLAYS_WIDE;
         last_scroll_tick = millis();
+        displayDirty = true;
       }
     } else if (display_mode == "clock_only") {
       is_showing_clock = true;
@@ -414,6 +413,7 @@ void loop() {
     }
 
     if (is_showing_clock) {
+      if (displayDirty) { dmd.clear(); displayDirty = false; }
       renderClockOnP10();
     } else {
       // Recalculate cache when text/anim changes
@@ -424,13 +424,13 @@ void loop() {
         cacheValid = true;
         scroll_x = 32 * DISPLAYS_WIDE;
         last_scroll_tick = millis();
+        displayDirty = true;
       }
 
       bool useStatic = (fitsPanelCache && anim == "static");
 
-      dmd.clear();
-
       if (useStatic) {
+        if (displayDirty) { dmd.clear(); displayDirty = false; }
         dmd.setFont(ElektronMart5x6);
         int text_width = dmd.textWidth(text1.c_str(), text1.length());
         int center_x = (32 * DISPLAYS_WIDE - text_width) / 2;
@@ -438,6 +438,7 @@ void loop() {
         int center_y = (16 - 8) / 2;
         dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
       } else {
+        dmd.clear();
         dmd.setFont(EMSans8x16);
         int text_width = dmd.textWidth(text1.c_str(), text1.length());
         dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());

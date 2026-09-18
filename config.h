@@ -16,7 +16,7 @@
 #define STATUS_INTERVAL    30000
 #define RECONNECT_INTERVAL 5000
 #define NTP_SERVER         "pool.ntp.org"
-#define NTP_GMT_OFFSET     7
+#define NTP_GMT_OFFSET     8
 #define NTP_DAYLIGHT       0
 #define NTP_WAIT_TIME      15000
 

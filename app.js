@@ -13,12 +13,11 @@ const state = {
   anim: "scroll_left",
   speed: 5,
   clockDuration: 10,
-  textDuration: 8,
+  textDuration: 15,
   displayMode: "cycle",
-  brightness: 40,
+  brightness: 20,
   autoDimming: false,
   power: true,
-  themeColor: "red",
   simCurrentView: "clock",
   simTimer: null
 };
@@ -48,7 +47,6 @@ const el = {
   simStatusInfo: document.getElementById('simStatusInfo'),
   simModeLabel: document.getElementById('simModeLabel'),
   btnToggleSimMode: document.getElementById('btnToggleSimMode'),
-  colorDots: document.querySelectorAll('.color-dot'),
   badgeText: document.getElementById('badgeText'),
   btnQuickSyncHeader: document.getElementById('btnQuickSyncHeader'),
   btnQuickSyncCard: document.getElementById('btnQuickSyncCard'),
@@ -118,7 +116,6 @@ function showMainApp() {
   if (el.mainApp) el.mainApp.classList.remove('hidden');
   if (el.userName) el.userName.textContent = state.user.name || state.user.email;
   loadDevices();
-  initSimulatorTheme();
   startSimulatorCycle();
   updateSimulatorUI();
   startStatusPolling();
@@ -423,11 +420,6 @@ function updateTimeDisplays() {
 }
 
 // ==================== SIMULATOR ====================
-function initSimulatorTheme() {
-  if (el.p10Matrix) el.p10Matrix.className = `p10-matrix theme-${state.themeColor}`;
-  el.colorDots.forEach(d => d.classList.toggle('active', d.dataset.color === state.themeColor));
-}
-
 function updateSimulatorUI() {
   if (!el.simMarqueeContent) return;
   el.simMarqueeContent.textContent = state.text1 || "P10 ESP8266";
@@ -568,13 +560,6 @@ function setupEventListeners() {
       state.autoDimming = e.target.checked;
     });
   }
-
-  el.colorDots.forEach(dot => {
-    dot.addEventListener('click', () => {
-      state.themeColor = dot.dataset.color;
-      initSimulatorTheme();
-    });
-  });
 
   if (el.btnToggleSimMode) {
     el.btnToggleSimMode.addEventListener('click', () => {

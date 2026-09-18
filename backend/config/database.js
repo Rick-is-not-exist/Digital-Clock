@@ -35,9 +35,9 @@ async function initDB() {
         anim VARCHAR(20) DEFAULT 'scroll_left',
         speed INTEGER DEFAULT 5,
         clock_duration INTEGER DEFAULT 10,
-        text_duration INTEGER DEFAULT 8,
+        text_duration INTEGER DEFAULT 15,
         display_mode VARCHAR(20) DEFAULT 'cycle',
-        brightness INTEGER DEFAULT 80,
+        brightness INTEGER DEFAULT 20,
         auto_dimming BOOLEAN DEFAULT false,
         power BOOLEAN DEFAULT true,
         updated_at TIMESTAMP DEFAULT NOW()

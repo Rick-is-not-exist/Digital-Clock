@@ -47,9 +47,9 @@ String text1 = "HALLO";
 String anim = "scroll_left";
 int speed_ms = 40;
 int clock_duration = 10;
-int text_duration = 8;
+int text_duration = 15;
 String display_mode = "cycle";
-int brightness_pwm = 102;
+int brightness_pwm = 51;
 bool format_24h = true;
 bool show_seconds = true;
 bool panel_power = true;
@@ -406,7 +406,6 @@ void loop() {
         is_showing_clock = !is_showing_clock;
         scroll_x = 32 * DISPLAYS_WIDE;
         last_scroll_tick = millis();
-        dmd.clear();
       }
     } else if (display_mode == "clock_only") {
       is_showing_clock = true;

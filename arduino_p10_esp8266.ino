@@ -155,6 +155,7 @@ void setup() {
 void connectWiFi() {
   Serial.printf("[WIFI] Connecting to %s", WIFI_SSID);
   WiFi.mode(WIFI_STA);
+  WiFi.setOutputPower(0);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   unsigned long start = millis();

@@ -280,7 +280,7 @@ function selectDevice(id) {
   state.anim = device.anim || "scroll_left";
   state.speed = device.speed || 5;
   state.clockDuration = device.clock_duration || 10;
-  state.textDuration = device.text_duration || 8;
+  state.textDuration = device.text_duration || 15;
   state.displayMode = device.display_mode || "cycle";
   state.brightness = device.brightness || 20;
   state.autoDimming = device.auto_dimming || false;

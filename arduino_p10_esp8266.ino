@@ -1,13 +1,12 @@
 /*
   =============================================================================
   PROYEK: P10 IoT Neon Clock & Running Text Controller (ESP8266 + DMDESP)
-  MODE: WiFi Station (STA) + MQTT via HiveMQ Cloud
+  MODE: WiFi AP Mode (Captive Portal) + STA Mode + MQTT via HiveMQ Cloud
   FUNGSI:
-   - Koneksi ke WiFi rumah (Station Mode)
-   - MQTT subscriber untuk menerima perintah dari cloud
-   - MQTT publisher untuk mengirim status heartbeat
-   - NTP time sync otomatis dari internet
-   - Tidak ada web server lokal (frontend di-hosting di Netlify)
+   - AP Mode: captive portal untuk setup WiFi pertama kali
+   - STA Mode: koneksi ke WiFi client + MQTT cloud
+   - NTP time sync otomatis
+   - Panel P10 display: jam, running text, animasi
   =============================================================================
   
   Koneksi Pin ESP8266 (NodeMCU) ke Panel P10 (DMD):
@@ -21,7 +20,12 @@
 */
 
 #include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+#include <EEPROM.h>
 #include <PubSubClient.h>
+#include <WiFiClientSecure.h>
+#include <Ticker.h>
 #include <time.h>
 #include <ArduinoJson.h>
 #include <DMDESP.h>
@@ -30,17 +34,32 @@
 #include <fonts/EMSans8x16.h>
 #include "config.h"
 
+extern "C" {
+  #include "user_interface.h"
+}
+
 // WiFi & MQTT
 WiFiClientSecure wifiSecure;
 PubSubClient mqtt(wifiSecure);
+ESP8266WebServer server(80);
+DNSServer dnsServer;
 
 // DMD (1 Panel P10 horizontal x 1 vertical)
 #define DISPLAYS_WIDE 1
 #define DISPLAYS_HIGH 1
 DMDESP dmd(DISPLAYS_WIDE, DISPLAYS_HIGH);
 
+// Timer for automatic display refresh (runs during yield() inside BearSSL)
+Ticker dmdRefreshTimer;
+
 // Device UID (unique identifier from ESP chip ID)
 String deviceUID;
+
+// Saved WiFi credentials
+String savedSSID = "";
+String savedPass = "";
+bool hasSavedWiFi = false;
+bool apMode = false;
 
 // Variables Pengaturan
 String text1 = "HALLO";
@@ -59,6 +78,7 @@ bool displayDirty = true;
 int current_hour = 12;
 int current_min = 0;
 int current_sec = 0;
+int last_display_sec = -1;
 int current_day = 1;
 int current_month = 1;
 int current_year = 2026;
@@ -79,10 +99,273 @@ bool cacheValid = false;
 
 // Timing
 unsigned long lastStatusSent = 0;
-unsigned long lastMqttReconnect = 0;
 unsigned long lastNtpSync = 0;
+unsigned long lastMqttReconnect = 0;
+unsigned long lastTimerReinit = 0;
 #define NTP_RESYNC_INTERVAL 3600000
+#define TIMER_REINIT_INTERVAL 300000  // 5 minutes
 bool mqttConnected = false;
+
+// Forward declarations for MQTT callbacks
+void connectMQTT();
+void onMqttMessage(char* topic, byte* payload, unsigned int length);
+
+// ==================== EEPROM ====================
+void saveWiFiCredentials(String ssid, String pass) {
+  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.write(EEPROM_ADDR, EEPROM_MAGIC);
+  for (int i = 0; i < EEPROM_SSID_LEN; i++) {
+    EEPROM.write(EEPROM_SSID_ADDR + i, i < ssid.length() ? ssid[i] : 0);
+  }
+  for (int i = 0; i < EEPROM_PASS_LEN; i++) {
+    EEPROM.write(EEPROM_PASS_ADDR + i, i < pass.length() ? pass[i] : 0);
+  }
+  EEPROM.commit();
+  EEPROM.end();
+  Serial.println("[EEPROM] WiFi credentials saved!");
+}
+
+bool loadWiFiCredentials() {
+  EEPROM.begin(EEPROM_SIZE);
+  if (EEPROM.read(EEPROM_ADDR) != EEPROM_MAGIC) {
+    EEPROM.end();
+    Serial.println("[EEPROM] No saved credentials found.");
+    return false;
+  }
+  char ssid[EEPROM_SSID_LEN + 1] = {0};
+  char pass[EEPROM_PASS_LEN + 1] = {0};
+  for (int i = 0; i < EEPROM_SSID_LEN; i++) ssid[i] = EEPROM.read(EEPROM_SSID_ADDR + i);
+  for (int i = 0; i < EEPROM_PASS_LEN; i++) pass[i] = EEPROM.read(EEPROM_PASS_ADDR + i);
+  EEPROM.end();
+  savedSSID = String(ssid);
+  savedPass = String(pass);
+  if (savedSSID.length() > 0) {
+    Serial.printf("[EEPROM] Loaded: SSID=%s\n", savedSSID.c_str());
+    return true;
+  }
+  return false;
+}
+
+void clearWiFiCredentials() {
+  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.write(EEPROM_ADDR, 0x00);
+  EEPROM.commit();
+  EEPROM.end();
+  Serial.println("[EEPROM] WiFi credentials cleared.");
+}
+
+// ==================== CAPTIVE PORTAL ====================
+const char* portalPage = R"rawliteral(
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P10 Clock - Setup WiFi</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f23;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      border: 1px solid #2a2a4a;
+    }
+    .icon { text-align: center; font-size: 48px; margin-bottom: 16px; }
+    h1 { text-align: center; font-size: 20px; margin-bottom: 8px; color: #fff; }
+    p { text-align: center; font-size: 14px; color: #888; margin-bottom: 24px; }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; font-weight: 500; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      background: #0f0f23;
+      color: #fff;
+      font-size: 15px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #e74c3c; }
+    .toggle-pass {
+      position: relative;
+    }
+    .toggle-pass input { padding-right: 44px; }
+    .toggle-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px 8px;
+    }
+    button[type="submit"] {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button[type="submit"]:hover { background: #c0392b; }
+    .note {
+      text-align: center;
+      font-size: 12px;
+      color: #555;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">&#128337;</div>
+    <h1>P10 IoT Clock</h1>
+    <p>Hubungkan ke WiFi rumah anda</p>
+    <form action="/save" method="POST">
+      <label for="ssid">Nama WiFi (SSID)</label>
+      <input type="text" id="ssid" name="ssid" placeholder="Masukkan nama WiFi" required>
+      <label for="pass">Password WiFi</label>
+      <div class="toggle-pass">
+        <input type="password" id="pass" name="pass" placeholder="Masukkan password WiFi">
+        <button type="button" class="toggle-btn" onclick="togglePass()">&#128065;</button>
+      </div>
+      <button type="submit">Simpan & Hubungkan</button>
+    </form>
+    <div class="note">WiFi akan otomatis tersimpan. ESP akan restart setelah terhubung.</div>
+  </div>
+  <script>
+    function togglePass() {
+      var x = document.getElementById("pass");
+      x.type = x.type === "password" ? "text" : "password";
+    }
+  </script>
+</body>
+</html>
+)rawliteral";
+
+const char* successPage = R"rawliteral(
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P10 Clock - Tersimpan!</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f23;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      border: 1px solid #2a2a4a;
+    }
+    .icon { font-size: 64px; margin-bottom: 16px; }
+    h1 { font-size: 20px; margin-bottom: 12px; color: #2ecc71; }
+    p { font-size: 14px; color: #888; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">&#9989;</div>
+    <h1>WiFi Tersimpan!</h1>
+    <p>ESP akan restart dan terhubung ke WiFi anda dalam beberapa detik.<br><br>
+    Jika tidak terhubung otomatis, restart ESP manual.</p>
+  </div>
+</body>
+</html>
+)rawliteral";
+
+void handleRoot() {
+  server.send(200, "text/html", portalPage);
+}
+
+void handleSave() {
+  String ssid = server.arg("ssid");
+  String pass = server.arg("pass");
+  
+  if (ssid.length() == 0) {
+    server.send(400, "text/html", "<h1>SSID tidak boleh kosong!</h1><a href='/'>Kembali</a>");
+    return;
+  }
+
+  Serial.printf("[PORTAL] Saving SSID=%s\n", ssid.c_str());
+  saveWiFiCredentials(ssid, pass);
+  server.send(200, "text/html", successPage);
+  
+  delay(2000);
+  ESP.restart();
+}
+
+void handleNotFound() {
+  server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
+  server.send(302, "text/plain", "");
+  server.client().stop();
+}
+
+void startCaptivePortal() {
+  apMode = true;
+  Serial.println("[PORTAL] Starting AP Mode...");
+  
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(AP_SSID, AP_PASS);
+  
+  IPAddress apIP = WiFi.softAPIP();
+  Serial.printf("[PORTAL] AP SSID: %s\n", AP_SSID);
+  Serial.printf("[PORTAL] AP IP: %s\n", apIP.toString().c_str());
+  
+  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+  dnsServer.start(53, "*", apIP);
+  
+  server.on("/", handleRoot);
+  server.on("/save", handleSave);
+  server.onNotFound(handleNotFound);
+  server.begin();
+  
+  Serial.println("[PORTAL] Captive portal ready! Open browser and connect to AP.");
+  
+  dmd.clear();
+  dmd.setFont(ElektronMart5x6);
+  dmd.drawText(2, 4, "SETP", 4);
+  dmd.swapBuffers();
+}
+
+void handlePortalClient() {
+  dnsServer.processNextRequest();
+  server.handleClient();
+}
 
 // ==================== SETUP ====================
 void setup() {
@@ -95,17 +378,39 @@ void setup() {
   Serial.println(deviceUID);
 
   // Initialize DMD
+  dmd.setDoubleBuffer(true);
   dmd.start();
   dmd.setBrightness(brightness_pwm);
   dmd.setFont(EMSans8x16);
   dmd.clear();
 
+  // Auto-refresh display via Ticker — fires during yield() inside BearSSL
+  dmdRefreshTimer.attach_ms(2, []() { dmd.loop(); });
+
   // Show connecting message on panel
   dmd.setFont(ElektronMart5x6);
   dmd.drawText(2, 4, "INIT", 4);
+  dmd.swapBuffers();
 
-  // Connect to WiFi
-  connectWiFi();
+  // Load saved WiFi credentials from EEPROM
+  hasSavedWiFi = loadWiFiCredentials();
+
+  if (hasSavedWiFi) {
+    // Try to connect with saved credentials
+    Serial.println("[WIFI] Trying saved credentials...");
+    connectWiFi(savedSSID, savedPass);
+  }
+
+  // If still not connected, start captive portal
+  if (WiFi.status() != WL_CONNECTED) {
+    if (!hasSavedWiFi) {
+      Serial.println("[WIFI] No saved credentials found.");
+    } else {
+      Serial.println("[WIFI] Saved credentials failed.");
+    }
+    startCaptivePortal();
+    return; // Skip MQTT, NTP, etc. — stay in AP mode
+  }
 
   // Setup NTP and wait for sync
   Serial.println("[NTP] Configuring time sync...");
@@ -135,14 +440,17 @@ void setup() {
     Serial.println("\n[NTP] Sync timeout, continuing...");
   }
 
-  // Setup TLS (skip cert validation for now)
-  wifiSecure.setInsecure();
-  wifiSecure.setBufferSizes(4096, 512);
-
   // Setup MQTT
+  String clientId = "p10_" + deviceUID;
+  String statusTopic = "p10/" + deviceUID + "/status";
+  String cmdTopic = "p10/" + deviceUID + "/commands";
+
+  wifiSecure.setInsecure();
+  wifiSecure.setBufferSizes(512, 512);  // Reduce TLS record size to minimize blocking time
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(onMqttMessage);
   mqtt.setBufferSize(512);
+  mqtt.setKeepAlive(60);  // Reduce keepalive traffic frequency
 
   // Connect to MQTT
   connectMQTT();
@@ -152,16 +460,15 @@ void setup() {
 }
 
 // ==================== WIFI ====================
-void connectWiFi() {
-  Serial.printf("[WIFI] Connecting to %s", WIFI_SSID);
+void connectWiFi(String ssid, String pass) {
+  Serial.printf("[WIFI] Connecting to %s", ssid.c_str());
   WiFi.mode(WIFI_STA);
-  WiFi.setOutputPower(0);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.setOutputPower(20);
+  WiFi.begin(ssid.c_str(), pass.c_str());
 
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_TIMEOUT) {
     Serial.print(".");
-    dmd.loop();
     delay(500);
   }
 
@@ -177,28 +484,25 @@ void connectWiFi() {
 // ==================== MQTT ====================
 void connectMQTT() {
   if (WiFi.status() != WL_CONNECTED) return;
+  if (mqtt.connected()) return;
 
   String clientId = "p10_" + deviceUID;
   String statusTopic = "p10/" + deviceUID + "/status";
   String cmdTopic = "p10/" + deviceUID + "/commands";
 
-  Serial.printf("[MQTT] Connecting to %s:%d...\n", MQTT_HOST, MQTT_PORT);
-
+  Serial.println("[MQTT] Connecting...");
   if (mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS,
-                    statusTopic.c_str(), 1, true, "{\"online\":false}")) {
-    Serial.println("[MQTT] Connected!");
+                   statusTopic.c_str(), 1, true, "{\"online\":false}")) {
     mqttConnected = true;
+    Serial.println("[MQTT] Connected!");
 
-    // Subscribe to commands topic
     mqtt.subscribe(cmdTopic.c_str(), 1);
     Serial.printf("[MQTT] Subscribed to %s\n", cmdTopic.c_str());
 
-    // Publish online status
     mqtt.publish(statusTopic.c_str(), "{\"online\":true}", true);
-
     Serial.println("[MQTT] Ready!");
   } else {
-    Serial.printf("[MQTT] Failed, rc=%d\n", mqtt.state());
+    Serial.printf("[MQTT] Connect failed, rc=%d\n", mqtt.state());
     mqttConnected = false;
   }
 }
@@ -242,6 +546,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
       panel_power = false;
       dmd.setBrightness(0);
       dmd.clear();
+      dmd.swapBuffers();
       Serial.println("[MQTT] Panel OFF");
     }
   }
@@ -251,10 +556,11 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   Serial.println("[MQTT] Settings applied!");
 }
 
+// ==================== STATUS ====================
 void sendStatus() {
   if (!mqttConnected) return;
   String statusTopic = "p10/" + deviceUID + "/status";
-  mqtt.publish(statusTopic.c_str(), "{\"online\":true}");
+  mqtt.publish(statusTopic.c_str(), "{\"online\":true}", false);
 }
 
 // ==================== DISPLAY LOGIC ====================
@@ -264,18 +570,32 @@ bool checkTextFitsPanel(const char* str, int len) {
   return (w <= 32 * DISPLAYS_WIDE);
 }
 
-void updateClockTicks() {
+void updateClockFromNTP() {
   if (millis() - last_sec_tick >= 1000) {
     last_sec_tick = millis();
-    current_sec++;
     colon_visible = !colon_visible;
-    if (current_sec >= 60) {
-      current_sec = 0;
-      current_min++;
-      if (current_min >= 60) {
-        current_min = 0;
-        current_hour++;
-        if (current_hour >= 24) current_hour = 0;
+
+    time_t now = time(nullptr);
+    if (now >= 8 * 3600) {
+      // NTP synced — read directly from SNTP
+      struct tm* t = localtime(&now);
+      current_hour = t->tm_hour;
+      current_min = t->tm_min;
+      current_sec = t->tm_sec;
+      current_day = t->tm_mday;
+      current_month = t->tm_mon + 1;
+      current_year = t->tm_year + 1900;
+    } else {
+      // NTP not yet synced — fallback manual increment
+      current_sec++;
+      if (current_sec >= 60) {
+        current_sec = 0;
+        current_min++;
+        if (current_min >= 60) {
+          current_min = 0;
+          current_hour++;
+          if (current_hour >= 24) current_hour = 0;
+        }
       }
     }
   }
@@ -352,14 +672,25 @@ void renderClockOnP10() {
 
 // ==================== LOOP ====================
 void loop() {
-  dmd.loop();
+
+  // AP Mode — handle captive portal
+  if (apMode) {
+    handlePortalClient();
+    return;
+  }
 
   // WiFi reconnect
   if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
+    connectWiFi(savedSSID, savedPass);
   }
 
-  // MQTT reconnect
+  // ESP8266 system timer reinit (prevents timer death, runs from main loop NOT from Ticker)
+  if (millis() - lastTimerReinit > TIMER_REINIT_INTERVAL) {
+    lastTimerReinit = millis();
+    system_timer_reinit();
+  }
+
+  // MQTT reconnect (manual, throttled)
   if (!mqtt.connected()) {
     mqttConnected = false;
     if (millis() - lastMqttReconnect > RECONNECT_INTERVAL) {
@@ -367,6 +698,7 @@ void loop() {
       connectMQTT();
     }
   } else {
+    // dmd.loop() handled by Ticker — safe to block here
     mqtt.loop();
   }
 
@@ -394,7 +726,7 @@ void loop() {
 
   // Display logic (only when panel is on)
   if (panel_power) {
-    updateClockTicks();
+    updateClockFromNTP();
 
     unsigned long currentMillis = millis();
     unsigned long activeDuration = (is_showing_clock ? clock_duration : text_duration) * 1000;
@@ -414,8 +746,13 @@ void loop() {
     }
 
     if (is_showing_clock) {
-      if (displayDirty) { dmd.clear(); displayDirty = false; }
-      renderClockOnP10();
+      if (displayDirty || current_sec != last_display_sec) {
+        last_display_sec = current_sec;
+        dmd.clear();
+        displayDirty = false;
+        renderClockOnP10();
+        dmd.swapBuffers();
+      }
     } else {
       // Recalculate cache when text/anim changes
       if (text1 != last_text1 || anim != last_anim || !cacheValid) {
@@ -431,21 +768,21 @@ void loop() {
       bool useStatic = (fitsPanelCache && anim == "static");
 
       if (useStatic) {
-        if (displayDirty) { dmd.clear(); displayDirty = false; }
-        dmd.setFont(ElektronMart5x6);
-        int text_width = dmd.textWidth(text1.c_str(), text1.length());
-        int center_x = (32 * DISPLAYS_WIDE - text_width) / 2;
-        if (center_x < 0) center_x = 0;
-        int center_y = (16 - 8) / 2;
-        dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
+        if (displayDirty) {
+          dmd.clear();
+          displayDirty = false;
+          dmd.setFont(ElektronMart5x6);
+          int text_width = dmd.textWidth(text1.c_str(), text1.length());
+          int center_x = (32 * DISPLAYS_WIDE - text_width) / 2;
+          if (center_x < 0) center_x = 0;
+          int center_y = (16 - 8) / 2;
+          dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
+          dmd.swapBuffers();
+        }
       } else {
-        dmd.clear();
-        dmd.setFont(EMSans8x16);
-        int text_width = dmd.textWidth(text1.c_str(), text1.length());
-        dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());
-
         if (millis() - last_scroll_tick >= speed_ms) {
           last_scroll_tick = millis();
+          int text_width = dmd.textWidth(text1.c_str(), text1.length());
           if (anim == "scroll_right") {
             scroll_x++;
             if (scroll_x > 32 * DISPLAYS_WIDE) scroll_x = -text_width;
@@ -453,10 +790,18 @@ void loop() {
             scroll_x--;
             if (scroll_x < -text_width) scroll_x = 32 * DISPLAYS_WIDE;
           }
+          displayDirty = true;
+        }
+
+        if (displayDirty) {
+          dmd.clear();
+          dmd.setFont(EMSans8x16);
+          int text_width = dmd.textWidth(text1.c_str(), text1.length());
+          dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());
+          dmd.swapBuffers();
+          displayDirty = false;
         }
       }
     }
-
-    dmd.loop();
   }
 }

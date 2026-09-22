@@ -105,14 +105,21 @@ String last_anim = "";
 String last_text1 = "";
 bool fitsPanelCache = false;
 bool cacheValid = false;
+int cachedTextWidth = 0;
+
+// UID display at boot
+bool showUidAtBoot = true;
+unsigned long uidShowStart = 0;
+#define UID_DISPLAY_DURATION 5000
 
 // Timing
 unsigned long lastStatusSent = 0;
 unsigned long lastNtpSync = 0;
 unsigned long lastMqttReconnect = 0;
+unsigned long lastMqttLoop = 0;
 unsigned long lastTimerReinit = 0;
 #define NTP_RESYNC_INTERVAL 3600000
-#define TIMER_REINIT_INTERVAL 300000  // 5 minutes
+#define TIMER_REINIT_INTERVAL 600000  // 10 minutes
 bool mqttConnected = false;
 
 // Forward declarations for MQTT callbacks
@@ -466,6 +473,15 @@ void setup() {
 
   lastNtpSync = millis();
   Serial.println("[SETUP] Ready!");
+
+  // Show device UID on P10 panel for 5 seconds at boot
+  showUidAtBoot = true;
+  uidShowStart = millis();
+  dmd.clear();
+  dmd.setFont(EMSans8x16);
+  dmd.drawText(4, 0, "UID:", 4);
+  dmd.drawText(4, 10, deviceUID.c_str(), deviceUID.length());
+  dmd.swapBuffers();
 }
 
 // ==================== WIFI ====================
@@ -715,6 +731,16 @@ void loop() {
     connectWiFi(savedSSID, savedPass);
   }
 
+  // UID display at boot — skip display logic but keep network running
+  if (showUidAtBoot) {
+    if (millis() - uidShowStart >= UID_DISPLAY_DURATION) {
+      showUidAtBoot = false;
+      displayDirty = true;
+    } else {
+      return;
+    }
+  }
+
   // ESP8266 system timer reinit (prevents timer death, runs from main loop NOT from Ticker)
   if (millis() - lastTimerReinit > TIMER_REINIT_INTERVAL) {
     lastTimerReinit = millis();
@@ -729,8 +755,11 @@ void loop() {
       connectMQTT();
     }
   } else {
-    // dmd.loop() handled by Ticker — safe to block here
-    mqtt.loop();
+    // Throttle mqtt.loop() — TLS processing can block 50-200ms, avoid freezing display
+    if (millis() - lastMqttLoop >= 200) {
+      lastMqttLoop = millis();
+      mqtt.loop();
+    }
   }
 
   // Send heartbeat
@@ -797,6 +826,7 @@ void loop() {
       // Recalculate cache when text/anim changes
       if (text1 != last_text1 || anim != last_anim || !cacheValid) {
         fitsPanelCache = checkTextFitsPanel(text1.c_str(), text1.length());
+        cachedTextWidth = dmd.textWidth(text1.c_str(), text1.length());
         last_text1 = text1;
         last_anim = anim;
         cacheValid = true;
@@ -822,21 +852,18 @@ void loop() {
       } else {
         if (millis() - last_scroll_tick >= speed_ms) {
           last_scroll_tick = millis();
-          int text_width = dmd.textWidth(text1.c_str(), text1.length());
           if (anim == "scroll_right") {
             scroll_x++;
-            if (scroll_x > 32 * DISPLAYS_WIDE) scroll_x = -text_width;
+            if (scroll_x > 32 * DISPLAYS_WIDE) scroll_x = -cachedTextWidth;
           } else {
             scroll_x--;
-            if (scroll_x < -text_width) scroll_x = 32 * DISPLAYS_WIDE;
+            if (scroll_x < -cachedTextWidth) scroll_x = 32 * DISPLAYS_WIDE;
           }
           displayDirty = true;
         }
 
         if (displayDirty) {
           dmd.clear();
-          dmd.setFont(EMSans8x16);
-          int text_width = dmd.textWidth(text1.c_str(), text1.length());
           dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());
           dmd.swapBuffers();
           displayDirty = false;

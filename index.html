@@ -98,6 +98,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           <span>Panduan</span>
         </button>
+
       </nav>
     </div>
 
@@ -138,10 +139,7 @@
         <div>
           <h2 class="page-title">Dashboard</h2>
         </div>
-        <button class="btn-ghost" id="btnOpenSettingsModal" type="button" title="Lihat JSON Payload">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 0 2.83-2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.67 15V9a1.65 1.65 0 0 0-1.33-1.62 2 2 0 0 1 0-3.76A1.65 1.65 0 0 0 5.67 2H9a1.65 1.65 0 0 0 1.51-1H12a1.65 1.65 0 0 0 1 1.51V5"/></svg>
-          <span>API</span>
-        </button>
+
       </header>
 
       <div class="dashboard-grid">
@@ -296,33 +294,22 @@
           <h3>Informasi Perangkat</h3>
           <div class="info-list">
             <div class="info-item">
-              <span class="info-key">Mode Koneksi</span>
-              <span class="info-val">Internet (MQTT via HiveMQ Cloud)</span>
+              <span class="info-key">Nama Perangkat</span>
+              <span class="info-val" id="infoDeviceName">-</span>
             </div>
             <div class="info-item">
-              <span class="info-key">Protocol</span>
-              <span class="info-val">MQTT over TLS (Port 8883)</span>
+              <span class="info-key">Device UID</span>
+              <span class="info-val" id="infoDeviceUid">-</span>
             </div>
             <div class="info-item">
-              <span class="info-key">WiFi</span>
-              <span class="info-val">Station Mode (WiFi Rumah)</span>
+              <span class="info-key">Status</span>
+              <span class="info-val" id="infoDeviceStatus">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Terakhir Online</span>
+              <span class="info-val" id="infoLastSeen">-</span>
             </div>
           </div>
-        </div>
-
-        <div class="info-card">
-          <h3>Data JSON</h3>
-          <div class="json-box">
-            <div class="json-header">
-              <span>Payload Aktif</span>
-              <button class="btn-copy" id="btnCopyJson" type="button">Salin</button>
-            </div>
-            <pre class="json-code" id="jsonPayloadPreview"></pre>
-          </div>
-          <button class="btn-send" id="btnSendFromModal" type="button" style="margin-top: 0.75rem;">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            <span>Kirim JSON Sekarang</span>
-          </button>
         </div>
       </div>
     </section>
@@ -337,38 +324,22 @@
 
       <div class="stack">
         <div class="info-card">
-          <h3>Pinout HUB12 (P10)</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>ESP8266</th><th>Panel P10</th><th>Fungsi</th></tr>
-              </thead>
-              <tbody>
-                <tr><td><code>D0 (GPIO16)</code></td><td><span class="pin-badge">A</span></td><td>Address A</td></tr>
-                <tr><td><code>D6 (GPIO12)</code></td><td><span class="pin-badge">B</span></td><td>Address B</td></tr>
-                <tr><td><code>D5 (GPIO14)</code></td><td><span class="pin-badge">CLK</span></td><td>Clock</td></tr>
-                <tr><td><code>D7 (GPIO13)</code></td><td><span class="pin-badge">R (DATA)</span></td><td>Data In</td></tr>
-                <tr><td><code>D8 (GPIO15)</code></td><td><span class="pin-badge">OE</span></td><td>Brightness PWM</td></tr>
-                <tr><td><code>D4 (GPIO2)</code></td><td><span class="pin-badge">LAT</span></td><td>Latch Strobe</td></tr>
-                <tr><td><code>GND</code></td><td><span class="pin-badge">GND</span></td><td>Ground</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="info-card">
-          <h3>Langkah Penggunaan</h3>
+          <h3>Cara Menggunakan Dashboard</h3>
           <ol class="steps">
-            <li><strong>Power Supply:</strong> Gunakan adaptor 5V (3A-5A) ke terminal power P10. Jangan dari ESP8266.</li>
-            <li><strong>WiFi:</strong> ESP8266 akan otomatis terhubung ke WiFi rumah (Station Mode).</li>
-            <li><strong>Buka Dashboard:</strong> Akses dashboard dari browser di mana saja (via internet).</li>
-            <li><strong>Daftar Akun:</strong> Buat akun baru atau masuk dengan akun yang sudah ada.</li>
-            <li><strong>Tambah Perangkat:</strong> Masukkan Device UID yang tertera di Serial Monitor ESP8266.</li>
-            <li><strong>Atur Panel:</strong> Ubah teks, animasi, kecepatan, dan kecerahan sesuai keinginan.</li>
+            <li><strong>Login / Daftar:</strong> Buka dashboard dari browser, buat akun baru atau masuk dengan akun yang sudah ada.</li>
+            <li><strong>Tambah Perangkat:</strong> Klik tombol "+" di dropdown perangkat, masukkan Device UID yang muncul di panel P10 saat pertama kali dinyalakan (5 detik pertama).</li>
+            <li><strong>Atur Pesan:</strong> Ketik teks yang ingin ditampilkan, atau pilih dari template yang tersedia.</li>
+            <li><strong>Pilih Animasi:</strong> Pilih jenis animasi (Scroll Kiri, Scroll Kanan, atau Diam) dan atur kecepatannya.</li>
+            <li><strong>Atur Mode Tampilan:</strong> Pilih Bergantian (jam dan teks bergantian), Jam Saja, atau Teks Saja.</li>
+            <li><strong>Kirim ke Panel:</strong> Klik tombol "KIRIM KE PANEL P10" untuk mengirim pengaturan ke perangkat.</li>
+            <li><strong>Ganti Tema:</strong> Klik ikon matahari/bulan di sidebar untuk beralih antara mode gelap dan terang.</li>
+            <li><strong>Daya Panel:</strong> Gunakan tombol "Panel: ON/OFF" di sidebar untuk menyalakan atau mematikan tampilan panel.</li>
           </ol>
         </div>
       </div>
     </section>
+
+
 
   </main>
 
@@ -382,21 +353,7 @@
     </div>
   </div>
 
-  <!-- PAYLOAD MODAL -->
-  <div class="modal-overlay hidden" id="payloadModal" role="dialog" aria-modal="true" aria-labelledby="payloadTitle">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title" id="payloadTitle">JSON Payload</h3>
-        <button class="modal-close" id="btnCloseModal" type="button" aria-label="Tutup">&times;</button>
-      </div>
-      <div class="modal-body">
-        <pre class="json-code" id="jsonPayloadModalPreview"></pre>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-ghost" id="btnDismissModal" type="button">Tutup</button>
-      </div>
-    </div>
-  </div>
+
 
   <!-- ADD DEVICE MODAL -->
   <div class="modal-overlay hidden" id="addDeviceModal" role="dialog" aria-modal="true" aria-labelledby="addDeviceTitle">

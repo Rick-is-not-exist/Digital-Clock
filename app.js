@@ -70,7 +70,6 @@ const el = {
   brightnessValueDisplay: document.getElementById('brightnessValueDisplay'),
   toggleAutoDimming: document.getElementById('toggleAutoDimming'),
   btnSendToESP: document.getElementById('btnSendToESP'),
-  btnSendFromModal: document.getElementById('btnSendFromModal'),
   deviceSelect: document.getElementById('deviceSelect'),
   btnAddDevice: document.getElementById('btnAddDevice'),
   btnDeleteDevice: document.getElementById('btnDeleteDevice'),
@@ -79,13 +78,10 @@ const el = {
   deviceNameInput: document.getElementById('deviceNameInput'),
   addDeviceModal: document.getElementById('addDeviceModal'),
   toastContainer: document.getElementById('toastContainer'),
-  jsonPayloadPreview: document.getElementById('jsonPayloadPreview'),
-  jsonPayloadModalPreview: document.getElementById('jsonPayloadModalPreview'),
-  btnCopyJson: document.getElementById('btnCopyJson'),
-  payloadModal: document.getElementById('payloadModal'),
-  btnOpenSettingsModal: document.getElementById('btnOpenSettingsModal'),
-  btnCloseModal: document.getElementById('btnCloseModal'),
-  btnDismissModal: document.getElementById('btnDismissModal'),
+  infoDeviceName: document.getElementById('infoDeviceName'),
+  infoDeviceUid: document.getElementById('infoDeviceUid'),
+  infoDeviceStatus: document.getElementById('infoDeviceStatus'),
+  infoLastSeen: document.getElementById('infoLastSeen'),
   hamburgerBtn: document.getElementById('hamburgerBtn'),
   sidebarOverlay: document.getElementById('sidebarOverlay'),
   appSidebar: document.getElementById('appSidebar'),
@@ -353,7 +349,7 @@ function selectDevice(id) {
   updateSimulatorUI();
   updatePowerUI();
   startSimulatorCycle();
-  updateJsonPayloadPreviews();
+  updateDeviceTab();
   closeSidebar();
 }
 
@@ -427,7 +423,6 @@ function setupNavigationTabs() {
         p.classList.remove('active');
         if (p.id === `tabContent${capitalize(tab)}`) p.classList.add('active');
       });
-      if (tab === 'perangkat') updateJsonPayloadPreviews();
       window.scrollTo({ top: 0, behavior: 'smooth' });
       closeSidebar();
     });
@@ -620,24 +615,6 @@ function setupEventListeners() {
   if (el.btnPowerToggle) el.btnPowerToggle.addEventListener('click', () => togglePower());
 
   if (el.btnSendToESP) el.btnSendToESP.addEventListener('click', () => sendFullConfig());
-  if (el.btnSendFromModal) el.btnSendFromModal.addEventListener('click', () => sendFullConfig());
-
-  if (el.btnCopyJson && el.jsonPayloadPreview) {
-    el.btnCopyJson.addEventListener('click', () => {
-      navigator.clipboard.writeText(el.jsonPayloadPreview.textContent)
-        .then(() => showToast('JSON disalin!', 'success'))
-        .catch(() => showToast('Gagal menyalin', 'error'));
-    });
-  }
-
-  if (el.btnOpenSettingsModal) el.btnOpenSettingsModal.addEventListener('click', openPayloadModal);
-  if (el.btnCloseModal) el.btnCloseModal.addEventListener('click', closePayloadModal);
-  if (el.btnDismissModal) el.btnDismissModal.addEventListener('click', closePayloadModal);
-  if (el.payloadModal) {
-    el.payloadModal.addEventListener('click', (e) => {
-      if (e.target === el.payloadModal) closePayloadModal();
-    });
-  }
 
   if (el.deviceSelect) {
     el.deviceSelect.addEventListener('change', (e) => {
@@ -672,11 +649,33 @@ function updateBadgeLabels() {
   if (el.brightnessValueDisplay) el.brightnessValueDisplay.textContent = `${state.brightness}%`;
 }
 
-function updateJsonPayloadPreviews() {
-  const payload = buildPayload();
-  const formatted = JSON.stringify(payload, null, 2);
-  if (el.jsonPayloadPreview) el.jsonPayloadPreview.textContent = formatted;
-  if (el.jsonPayloadModalPreview) el.jsonPayloadModalPreview.textContent = formatted;
+function updateDeviceTab() {
+  const device = state.activeDevice;
+  if (!device) return;
+
+  if (el.infoDeviceName) el.infoDeviceName.textContent = device.name || '-';
+  if (el.infoDeviceUid) el.infoDeviceUid.textContent = device.device_uid || '-';
+
+  if (el.infoDeviceStatus) {
+    if (device.online) {
+      el.infoDeviceStatus.innerHTML = '<span class="status-dot online"></span> Sedang Online';
+    } else {
+      el.infoDeviceStatus.innerHTML = '<span class="status-dot offline"></span> Offline';
+    }
+  }
+
+  if (el.infoLastSeen) {
+    if (device.online) {
+      el.infoLastSeen.textContent = 'Sedang terhubung';
+    } else if (device.last_seen) {
+      const d = new Date(device.last_seen);
+      const day = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      el.infoLastSeen.textContent = `${day}, ${time}`;
+    } else {
+      el.infoLastSeen.textContent = '-';
+    }
+  }
 }
 
 // ==================== CLOUD API ====================
@@ -764,16 +763,6 @@ function updatePowerUI() {
 }
 
 // ==================== MODAL & TOAST ====================
-function openPayloadModal() {
-  if (!el.payloadModal) return;
-  updateJsonPayloadPreviews();
-  el.payloadModal.classList.remove('hidden');
-}
-
-function closePayloadModal() {
-  if (el.payloadModal) el.payloadModal.classList.add('hidden');
-}
-
 function showToast(message, type = 'info') {
   if (!el.toastContainer) return;
   const toast = document.createElement('div');

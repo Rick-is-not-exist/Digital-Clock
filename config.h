@@ -2,11 +2,10 @@
 #define CONFIG_H
 
 // === AP Mode (Captive Portal) ===
-#define AP_SSID       "P10-Clock-Setup"
 #define AP_PASS       ""  // Open network, no password
 
 // === EEPROM Layout ===
-#define EEPROM_SIZE   96
+#define EEPROM_SIZE   98
 #define EEPROM_MAGIC  0xAB  // Magic byte to detect first boot
 #define EEPROM_ADDR   0
 #define EEPROM_SSID_ADDR  1

@@ -48,8 +48,6 @@ const el = {
   simModeLabel: document.getElementById('simModeLabel'),
   btnToggleSimMode: document.getElementById('btnToggleSimMode'),
   badgeText: document.getElementById('badgeText'),
-  btnQuickSyncHeader: document.getElementById('btnQuickSyncHeader'),
-  btnQuickSyncCard: document.getElementById('btnQuickSyncCard'),
   btnPowerToggle: document.getElementById('btnPowerToggle'),
   btnPowerToggleCard: document.getElementById('btnPowerToggleCard'),
   powerStatus: document.getElementById('powerStatus'),
@@ -86,12 +84,37 @@ const el = {
   payloadModal: document.getElementById('payloadModal'),
   btnOpenSettingsModal: document.getElementById('btnOpenSettingsModal'),
   btnCloseModal: document.getElementById('btnCloseModal'),
-  btnDismissModal: document.getElementById('btnDismissModal')
+  btnDismissModal: document.getElementById('btnDismissModal'),
+  hamburgerBtn: document.getElementById('hamburgerBtn'),
+  sidebarOverlay: document.getElementById('sidebarOverlay'),
+  appSidebar: document.getElementById('appSidebar'),
+  mobileHeader: document.getElementById('mobileHeader')
 };
 
 window.toggleAccordion = function(header) {
   header.parentElement.classList.toggle('open');
 };
+
+// ==================== SIDEBAR TOGGLE (MOBILE) ====================
+function openSidebar() {
+  if (el.appSidebar) el.appSidebar.classList.add('open');
+  if (el.sidebarOverlay) el.sidebarOverlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  if (el.appSidebar) el.appSidebar.classList.remove('open');
+  if (el.sidebarOverlay) el.sidebarOverlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function toggleSidebar() {
+  if (el.appSidebar && el.appSidebar.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    openSidebar();
+  }
+}
 
 // ==================== AUTH ====================
 document.addEventListener('DOMContentLoaded', () => {
@@ -311,6 +334,7 @@ function selectDevice(id) {
   updatePowerUI();
   startSimulatorCycle();
   updateJsonPayloadPreviews();
+  closeSidebar();
 }
 
 async function addDevice() {
@@ -385,6 +409,7 @@ function setupNavigationTabs() {
       });
       if (tab === 'perangkat') updateJsonPayloadPreviews();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      closeSidebar();
     });
   });
 }
@@ -478,6 +503,10 @@ function switchSimView(view) {
 
 // ==================== EVENT LISTENERS ====================
 function setupEventListeners() {
+  // Sidebar toggle (mobile)
+  if (el.hamburgerBtn) el.hamburgerBtn.addEventListener('click', toggleSidebar);
+  if (el.sidebarOverlay) el.sidebarOverlay.addEventListener('click', closeSidebar);
+
   if (el.inputText1) {
     el.inputText1.addEventListener('input', (e) => {
       state.text1 = e.target.value;
@@ -567,8 +596,6 @@ function setupEventListeners() {
     });
   }
 
-  if (el.btnQuickSyncHeader) el.btnQuickSyncHeader.addEventListener('click', () => sendTimeSync());
-  if (el.btnQuickSyncCard) el.btnQuickSyncCard.addEventListener('click', () => sendTimeSync());
   if (el.btnPowerToggle) el.btnPowerToggle.addEventListener('click', () => togglePower());
   if (el.btnPowerToggleCard) el.btnPowerToggleCard.addEventListener('click', () => togglePower());
 
@@ -675,25 +702,6 @@ async function sendFullConfig() {
     if (idx >= 0) {
       Object.assign(state.devices[idx], payload);
     }
-  } catch (err) {
-    showToast('Gagal terhubung ke server', 'error');
-  }
-}
-
-async function sendTimeSync() {
-  if (!state.activeDevice) {
-    showToast('Pilih perangkat terlebih dahulu', 'error');
-    return;
-  }
-
-  showToast('Menyinkronkan waktu...', 'info');
-
-  try {
-    const res = await apiFetch(`/api/devices/${state.activeDevice.id}/sync-time`, {
-      method: 'POST'
-    });
-
-    showToast(res.ok ? 'Waktu tersinkron!' : 'Gagal sync waktu', res.ok ? 'success' : 'error');
   } catch (err) {
     showToast('Gagal terhubung ke server', 'error');
   }

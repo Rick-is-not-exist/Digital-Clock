@@ -49,6 +49,31 @@
 <!-- MAIN APP -->
 <div class="app-layout hidden" id="mainApp">
 
+  <!-- MOBILE HEADER -->
+  <div class="mobile-header" id="mobileHeader">
+    <div class="brand-badge">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="3"/>
+          <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h.01M14 14h.01M18 14h.01"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">P10 MATRIX</h1>
+      </div>
+    </div>
+    <div class="mobile-header-actions">
+      <button class="hamburger-btn" id="hamburgerBtn" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <!-- SIDEBAR -->
   <aside class="app-sidebar" id="appSidebar">
     <div class="sidebar-header">
@@ -109,17 +134,11 @@
       </button>
     </nav>
 
-    <div class="sidebar-footer">
+      <div class="sidebar-footer">
       <div class="device-status-pill">
         <span class="status-dot"></span>
         <span class="status-label" id="badgeText">Memuat...</span>
       </div>
-      <button class="btn-sidebar-sync" id="btnQuickSyncHeader" title="Sync Waktu">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-        </svg>
-        <span>Sync Waktu HP</span>
-      </button>
       <button class="btn-sidebar-power" id="btnPowerToggle" title="On/Off Panel">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
@@ -271,12 +290,6 @@
               <input type="range" id="textDuration" min="3" max="60" value="8" class="app-range">
             </div>
 
-            <button class="btn-block" id="btnQuickSyncCard" title="Sinkronkan Waktu Browser ke ESP8266">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-              </svg>
-              <span>Sync Waktu HP ke Panel</span>
-            </button>
             <button class="btn-block" id="btnPowerToggleCard" title="On/Off Panel">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>

@@ -86,8 +86,17 @@ unsigned long last_sec_tick = 0;
 unsigned long last_mode_switch = 0;
 bool is_showing_clock = true;
 bool colon_visible = true;
-bool date_show_day = true;
-unsigned long last_date_switch = 0;
+
+// BARIS 2: Day scroll + Date static state machine
+enum DateDisplayState { SCROLL_DAY, DATE_STATIC };
+DateDisplayState dateState = SCROLL_DAY;
+int dateScrollX = 32;
+unsigned long lastDateScrollTick = 0;
+unsigned long lastDateStaticTick = 0;
+int dayScrollCycles = 0;
+#define DAY_SCROLL_SPEED_MS 50
+#define DAY_SCROLL_MAX_CYCLES 2
+#define DATE_STATIC_DURATION 5000
 
 // Running Text
 int scroll_x = 32 * DISPLAYS_WIDE;
@@ -565,7 +574,7 @@ void sendStatus() {
 
 // ==================== DISPLAY LOGIC ====================
 bool checkTextFitsPanel(const char* str, int len) {
-  dmd.setFont(ElektronMart5x6);
+  dmd.setFont(Mono5x7);
   int w = dmd.textWidth(str, len);
   return (w <= 32 * DISPLAYS_WIDE);
 }
@@ -652,22 +661,44 @@ void renderClockOnP10() {
   
   dmd.drawText(startX + hourW + 1 + colonW + 1, 0, minBuff, strlen(minBuff));
   
-  // BARIS 2: Tanggal
-  if (millis() - last_date_switch >= 5000) {
-    last_date_switch = millis();
-    date_show_day = !date_show_day;
-  }
+  // BARIS 2: Day scroll + Date static state machine
+  dmd.setFont(Mono5x7);
   
-  char dateBuff[12];
-  if (date_show_day) {
+  if (dateState == SCROLL_DAY) {
     int dow = getDayOfWeek(current_year, current_month, current_day);
-    sprintf(dateBuff, "%s", getDayName(dow));
+    char dayBuff[12];
+    sprintf(dayBuff, "%s", getDayName(dow));
+    int dayW = dmd.textWidth(dayBuff, strlen(dayBuff));
+    
+    if (millis() - lastDateScrollTick >= DAY_SCROLL_SPEED_MS) {
+      lastDateScrollTick = millis();
+      dateScrollX--;
+    }
+    
+    dmd.drawText(dateScrollX, 9, dayBuff, strlen(dayBuff));
+    
+    if (dateScrollX < -dayW) {
+      dateScrollX = 32;
+      dayScrollCycles++;
+      if (dayScrollCycles >= DAY_SCROLL_MAX_CYCLES) {
+        dateState = DATE_STATIC;
+        lastDateStaticTick = millis();
+        dayScrollCycles = 0;
+      }
+    }
   } else {
+    char dateBuff[12];
     sprintf(dateBuff, "%02d/%02d", current_day, current_month);
+    int dateW = dmd.textWidth(dateBuff, strlen(dateBuff));
+    int dateX = (32 - dateW) / 2;
+    dmd.drawText(dateX, 9, dateBuff, strlen(dateBuff));
+    
+    if (millis() - lastDateStaticTick >= DATE_STATIC_DURATION) {
+      dateState = SCROLL_DAY;
+      dateScrollX = 32;
+      lastDateScrollTick = millis();
+    }
   }
-  int dateW = dmd.textWidth(dateBuff, strlen(dateBuff));
-  int dateX = (32 - dateW) / 2;
-  dmd.drawText(dateX, 9, dateBuff, strlen(dateBuff));
 }
 
 // ==================== LOOP ====================
@@ -738,6 +769,12 @@ void loop() {
         scroll_x = 32 * DISPLAYS_WIDE;
         last_scroll_tick = millis();
         displayDirty = true;
+        if (is_showing_clock) {
+          dateState = SCROLL_DAY;
+          dateScrollX = 32;
+          dayScrollCycles = 0;
+          lastDateScrollTick = millis();
+        }
       }
     } else if (display_mode == "clock_only") {
       is_showing_clock = true;
@@ -746,8 +783,11 @@ void loop() {
     }
 
     if (is_showing_clock) {
-      if (displayDirty || current_sec != last_display_sec) {
-        last_display_sec = current_sec;
+      bool secChanged = (current_sec != last_display_sec);
+      bool scrollTick = (dateState == SCROLL_DAY && currentMillis - lastDateScrollTick >= DAY_SCROLL_SPEED_MS);
+      
+      if (displayDirty || secChanged || scrollTick) {
+        if (secChanged) last_display_sec = current_sec;
         dmd.clear();
         displayDirty = false;
         renderClockOnP10();
@@ -771,11 +811,11 @@ void loop() {
         if (displayDirty) {
           dmd.clear();
           displayDirty = false;
-          dmd.setFont(ElektronMart5x6);
+          dmd.setFont(Mono5x7);
           int text_width = dmd.textWidth(text1.c_str(), text1.length());
           int center_x = (32 * DISPLAYS_WIDE - text_width) / 2;
           if (center_x < 0) center_x = 0;
-          int center_y = (16 - 8) / 2;
+          int center_y = (16 - 7) / 2;
           dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
           dmd.swapBuffers();
         }

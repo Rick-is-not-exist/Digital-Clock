@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <title>P10 IoT Matrix Controller</title>
+  <meta name="color-scheme" content="dark light">
+  <title>Tempora Nova - P10 Matrix Controller</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,32 +16,26 @@
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="5" width="20" height="14" rx="3"/>
-          <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h.01M14 14h.01M18 14h.01"/>
-        </svg>
-      </div>
-      <h1 class="auth-title">P10 MATRIX</h1>
-      <p class="auth-subtitle">IoT Controller</p>
+      <span class="auth-wordmark">TEMPORA NOVA</span>
+      <span class="auth-sub">P10 Matrix Controller</span>
     </div>
-    <form id="authForm">
+    <form id="authForm" novalidate>
       <div class="form-group">
         <label class="form-label" for="authEmail">Email</label>
-        <input type="email" id="authEmail" class="form-input" placeholder="email@contoh.com" required>
+        <input type="email" id="authEmail" class="form-input" placeholder="email@contoh.com" required autocomplete="email">
       </div>
       <div class="form-group">
         <label class="form-label" for="authPassword">Password</label>
-        <input type="password" id="authPassword" class="form-input" placeholder="Password" required>
+        <input type="password" id="authPassword" class="form-input" placeholder="Password" required autocomplete="current-password">
       </div>
       <div id="registerFields" class="hidden">
         <div class="form-group">
           <label class="form-label" for="authName">Nama (opsional)</label>
-          <input type="text" id="authName" class="form-input" placeholder="Nama Anda">
+          <input type="text" id="authName" class="form-input" placeholder="Nama Anda" autocomplete="name">
         </div>
       </div>
-      <p class="auth-error" id="authError"></p>
-      <button type="submit" class="btn-block btn-primary" id="authSubmit">Masuk</button>
+      <p class="auth-error" id="authError" role="alert"></p>
+      <button type="submit" class="btn-primary" id="authSubmit">Masuk</button>
       <button type="button" class="btn-text" id="authToggle">Belum punya akun? Daftar</button>
     </form>
   </div>
@@ -50,105 +45,86 @@
 <div class="app-layout hidden" id="mainApp">
 
   <!-- MOBILE HEADER -->
-  <div class="mobile-header" id="mobileHeader">
-    <div class="brand-badge">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="5" width="20" height="14" rx="3"/>
-          <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h.01M14 14h.01M18 14h.01"/>
-        </svg>
-      </div>
-      <div>
-        <h1 class="brand-title">P10 MATRIX</h1>
-      </div>
+  <header class="mobile-header" id="mobileHeader">
+    <div class="mobile-brand">
+      <span class="mobile-wordmark">TEMPORA NOVA</span>
+      <span class="mobile-sub">P10 Matrix</span>
     </div>
     <div class="mobile-header-actions">
-      <button class="hamburger-btn" id="hamburgerBtn" title="Menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
+      <button class="icon-btn" id="hamburgerBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="appSidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
     </div>
-  </div>
+  </header>
 
-  <!-- SIDEBAR OVERLAY -->
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
   <!-- SIDEBAR -->
-  <aside class="app-sidebar" id="appSidebar">
-    <div class="sidebar-header">
-      <div class="brand-badge">
-        <div class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="5" width="20" height="14" rx="3"/>
-            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h.01M14 14h.01M18 14h.01"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="brand-title">P10 MATRIX</h1>
-          <span class="brand-tag">IoT Controller</span>
+  <aside class="app-sidebar" id="appSidebar" aria-label="Navigasi utama">
+    <div class="sidebar-top">
+      <div class="sidebar-brand">
+        <span class="brand-wordmark">TEMPORA NOVA</span>
+        <span class="brand-sub">IoT Controller</span>
+      </div>
+
+      <div class="device-selector">
+        <label class="sr-only" for="deviceSelect">Pilih perangkat</label>
+        <select id="deviceSelect" class="form-select">
+          <option value="">Memuat perangkat...</option>
+        </select>
+        <div class="device-selector-actions">
+          <button class="icon-btn sm" id="btnRefreshDevices" title="Refresh" aria-label="Refresh perangkat">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/><path d="M2.5 22v-6h6M2.66 8.43a10 10 0 0 1 .57 8.38"/></svg>
+          </button>
+          <button class="icon-btn sm" id="btnAddDevice" title="Tambah Perangkat" aria-label="Tambah perangkat">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="icon-btn sm danger" id="btnDeleteDevice" title="Hapus Perangkat" aria-label="Hapus perangkat">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </div>
       </div>
+
+      <nav class="sidebar-nav" aria-label="Menu">
+        <button class="nav-item active" data-tab="dashboard" id="navDashboard" aria-current="page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="perangkat" id="navPerangkat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <span>Perangkat</span>
+        </button>
+        <button class="nav-item" data-tab="panduan" id="navPanduan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Panduan</span>
+        </button>
+      </nav>
     </div>
 
-    <!-- DEVICE SELECTOR -->
-    <div class="device-selector">
-      <select id="deviceSelect" class="form-select">
-        <option value="">Memuat perangkat...</option>
-      </select>
-      <div class="device-selector-actions">
-        <button class="btn-icon" id="btnRefreshDevices" title="Refresh">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-        </button>
-        <button class="btn-icon" id="btnAddDevice" title="Tambah Perangkat">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        <button class="btn-icon btn-danger" id="btnDeleteDevice" title="Hapus Perangkat">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
-      </div>
-    </div>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" id="btnThemeToggle" type="button" aria-label="Ganti tema">
+        <span class="theme-toggle-track" aria-hidden="true">
+          <svg class="theme-icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <svg class="theme-icon moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </span>
+        <span class="theme-label" id="themeLabel">Mode Gelap</span>
+      </button>
 
-    <nav class="sidebar-nav">
-      <button class="nav-item active" data-tab="dashboard" id="navDashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
-        </svg>
-        <span>Dashboard</span>
-      </button>
-      <button class="nav-item" data-tab="perangkat" id="navPerangkat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-          <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
-        </svg>
-        <span>Perangkat</span>
-      </button>
-      <button class="nav-item" data-tab="panduan" id="navPanduan">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-        <span>Panduan</span>
-      </button>
-    </nav>
-
-      <div class="sidebar-footer">
       <div class="device-status-pill">
-        <span class="status-dot"></span>
+        <span class="status-dot" aria-hidden="true"></span>
         <span class="status-label" id="badgeText">Memuat...</span>
       </div>
-      <button class="btn-sidebar-power" id="btnPowerToggle" title="On/Off Panel">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-          <line x1="12" y1="2" x2="12" y2="12"/>
-        </svg>
+
+      <button class="btn-sidebar-power" id="btnPowerToggle" type="button" title="On/Off Panel">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
         <span>Panel: <strong id="powerStatus">ON</strong></span>
       </button>
+      <!-- kept for app.js compat, hidden -->
+      <span id="powerStatusCard" class="hidden" aria-hidden="true">ON</span>
+
       <div class="sidebar-user">
-        <span id="userName">User</span>
-        <button class="btn-text-sm" id="btnLogout">Logout</button>
+        <span id="userName" class="user-name">User</span>
+        <button class="btn-text-sm" id="btnLogout" type="button">Logout</button>
       </div>
     </div>
   </aside>
@@ -159,110 +135,70 @@
     <!-- DASHBOARD -->
     <section class="tab-content active" id="tabContentDashboard">
       <header class="page-header">
-        <h2 class="page-title">Dashboard</h2>
-        <button class="btn-header-action" id="btnOpenSettingsModal" title="Lihat JSON Payload">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
+        <div>
+          <h2 class="page-title">Dashboard</h2>
+        </div>
+        <button class="btn-ghost" id="btnOpenSettingsModal" type="button" title="Lihat JSON Payload">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 0 2.83-2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.67 15V9a1.65 1.65 0 0 0-1.33-1.62 2 2 0 0 1 0-3.76A1.65 1.65 0 0 0 5.67 2H9a1.65 1.65 0 0 0 1.51-1H12a1.65 1.65 0 0 0 1 1.51V5"/></svg>
           <span>API</span>
         </button>
       </header>
 
-      <!-- SIMULATOR HERO -->
-      <div class="simulator-card">
-        <div class="sim-header">
-          <button class="sim-mode-badge" id="btnToggleSimMode">
-            <span class="live-dot"></span>
-            <span id="simModeLabel">Mode: Jam</span>
-          </button>
-        </div>
+      <div class="dashboard-grid">
+        <!-- LEFT: CONTROLS -->
+        <div class="dashboard-controls">
 
-        <div class="p10-screen">
-          <div class="p10-matrix theme-red" id="p10Matrix">
-            <div class="matrix-layer" id="matrixLayer">
-              <div class="matrix-clock" id="matrixClockView">
-                <div class="p10-time-layout">
-                  <div class="p10-hours" id="simHours">12</div>
-                  <div class="p10-colon blink">:</div>
-                  <div class="p10-min" id="simMin">45</div>
-                </div>
-                <div class="p10-date" id="simDate"></div>
-              </div>
-              <div class="matrix-marquee hidden" id="matrixMarqueeView">
-                <div class="marquee-text scroll-left" id="simMarqueeContent">HALLO</div>
-              </div>
-            </div>
-            <div class="dot-grid"></div>
-          </div>
-        </div>
-
-        <div class="sim-meta">
-          <span id="simStatusInfo">Scroll Kiri &bull; Speed Lv 5 &bull; Terang 80%</span>
-        </div>
-      </div>
-
-      <!-- ACCORDION CONTROLS -->
-      <div class="accordion">
-        <div class="accordion-section" data-section="pesan">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <h3>Pesan Teks</h3>
-            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="accordion-body">
+          <section class="control-card">
+            <h3 class="control-title">Pesan Teks</h3>
             <div class="form-group">
               <div class="form-label">
                 <label for="inputText1">Isi Pesan</label>
-                <span class="form-value" id="charCount1">0/150</span>
+                <span class="form-value" id="charCount1">5/150</span>
               </div>
               <div class="input-wrap">
-                <input type="text" id="inputText1" class="form-input" placeholder="Tulis pesan..." maxlength="150" value="HALLO">
-                <button class="btn-clear" data-target="inputText1">&times;</button>
+                <input type="text" id="inputText1" class="form-input" placeholder="Tulis pesan..." maxlength="150" value="HALLO" autocomplete="off">
+                <button class="btn-clear" data-target="inputText1" type="button" aria-label="Hapus teks">×</button>
               </div>
             </div>
-            <div class="chips-row">
-              <button class="chip" data-text="SELAMAT DATANG">Selamat Datang</button>
-              <button class="chip" data-text="JAGALAH KEBERSIHAN & KETERTIBAN">Kebersihan</button>
-              <button class="chip" data-text="WAKTU SHOLAT TELAH TIBA">Waktu Sholat</button>
-              <button class="chip" data-text="TOKO BUKA - SILAKAN MASUK">Toko Buka</button>
-              <button class="chip" data-text="INFO: PARKIR KHUSUS PENGUNJUNG">Info Parkir</button>
+            <div class="chips-row" role="list">
+              <button class="chip" data-text="SELAMAT DATANG" type="button" role="listitem">Selamat Datang</button>
+              <button class="chip" data-text="JAGALAH KEBERSIHAN & KETERTIBAN" type="button" role="listitem">Kebersihan</button>
+              <button class="chip" data-text="WAKTU SHOLAT TELAH TIBA" type="button" role="listitem">Waktu Sholat</button>
+              <button class="chip" data-text="TOKO BUKA - SILAKAN MASUK" type="button" role="listitem">Toko Buka</button>
+              <button class="chip" data-text="INFO: PARKIR KHUSUS PENGUNJUNG" type="button" role="listitem">Info Parkir</button>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div class="accordion-section" data-section="animasi">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <h3>Animasi & Durasi</h3>
-            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="accordion-body">
-            <div class="segmented">
-              <button class="seg-btn active" data-mode="cycle">Bergantian</button>
-              <button class="seg-btn" data-mode="clock_only">Jam Saja</button>
-              <button class="seg-btn" data-mode="text_only">Teks Saja</button>
+          <section class="control-card">
+            <h3 class="control-title">Animasi dan Durasi</h3>
+
+            <div class="segmented" role="group" aria-label="Mode tampilan">
+              <button class="seg-btn active" data-mode="cycle" type="button">Bergantian</button>
+              <button class="seg-btn" data-mode="clock_only" type="button">Jam Saja</button>
+              <button class="seg-btn" data-mode="text_only" type="button">Teks Saja</button>
             </div>
 
             <div class="anim-options">
               <label class="anim-option active">
                 <input type="radio" name="animEffect" value="scroll_left" checked>
-                <div class="anim-content">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                <span class="anim-content">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                   <span>Scroll Kiri</span>
-                </div>
+                </span>
               </label>
               <label class="anim-option">
                 <input type="radio" name="animEffect" value="scroll_right">
-                <div class="anim-content">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <span class="anim-content">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                   <span>Scroll Kanan</span>
-                </div>
+                </span>
               </label>
               <label class="anim-option">
                 <input type="radio" name="animEffect" value="static">
-                <div class="anim-content">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                <span class="anim-content">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                   <span>Diam</span>
-                </div>
+                </span>
               </label>
             </div>
 
@@ -289,27 +225,14 @@
               </div>
               <input type="range" id="textDuration" min="3" max="60" value="8" class="app-range">
             </div>
+          </section>
 
-            <button class="btn-block" id="btnPowerToggleCard" title="On/Off Panel">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                <line x1="12" y1="2" x2="12" y2="12"/>
-              </svg>
-              <span>Panel: <strong id="powerStatusCard">ON</strong></span>
-            </button>
-          </div>
-        </div>
-
-        <div class="accordion-section" data-section="kecerahan">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <h3>Kecerahan</h3>
-            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="accordion-body">
+          <section class="control-card">
+            <h3 class="control-title">Kecerahan</h3>
             <div class="form-group">
               <div class="form-label">
                 <label for="brightnessSlider">Kecerahan LED</label>
-                <span class="form-value" id="brightnessValueDisplay">80%</span>
+                <span class="form-value" id="brightnessValueDisplay">20%</span>
               </div>
               <input type="range" id="brightnessSlider" min="5" max="100" value="20" class="app-range">
             </div>
@@ -317,93 +240,133 @@
               <span class="toggle-title">Mode Malam</span>
               <label class="switch">
                 <input type="checkbox" id="toggleAutoDimming">
-                <span class="switch-slider"></span>
+                <span class="switch-slider" aria-hidden="true"></span>
               </label>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- RIGHT: SIMULATOR PREVIEW -->
+        <div class="dashboard-sim">
+          <div class="simulator-card">
+            <div class="sim-header">
+              <button class="sim-mode-badge secondary-gold" id="btnToggleSimMode" type="button">
+                <span class="live-dot" aria-hidden="true"></span>
+                <span id="simModeLabel">Mode: Jam</span>
+              </button>
+              <span class="sim-hint">Pratinjau</span>
+            </div>
+            <div class="p10-screen">
+              <div class="p10-matrix theme-red" id="p10Matrix">
+                <div class="matrix-layer" id="matrixLayer">
+                  <div class="matrix-clock" id="matrixClockView">
+                    <div class="p10-time-layout">
+                      <div class="p10-hours" id="simHours">12</div>
+                      <div class="p10-colon blink">:</div>
+                      <div class="p10-min" id="simMin">45</div>
+                    </div>
+                    <div class="p10-date" id="simDate"></div>
+                  </div>
+                  <div class="matrix-marquee hidden" id="matrixMarqueeView">
+                    <div class="marquee-text scroll-left" id="simMarqueeContent">HALLO</div>
+                  </div>
+                </div>
+                <div class="dot-grid" aria-hidden="true"></div>
+              </div>
+            </div>
+            <div class="sim-meta">
+              <span id="simStatusInfo">Scroll Kiri · Speed Lv 5 · Terang 80%</span>
             </div>
           </div>
         </div>
       </div>
-
     </section>
 
     <!-- PERANGKAT -->
     <section class="tab-content" id="tabContentPerangkat">
       <header class="page-header">
-        <h2 class="page-title">Perangkat</h2>
+        <div>
+          <h2 class="page-title">Perangkat</h2>
+        </div>
       </header>
 
-      <div class="info-card">
-        <h3>Informasi Perangkat</h3>
-        <div class="info-list">
-          <div class="info-item">
-            <span class="info-key">Mode Koneksi:</span>
-            <span class="info-val">Internet (MQTT via HiveMQ Cloud)</span>
-          </div>
-          <div class="info-item">
-            <span class="info-key">Protocol:</span>
-            <span class="info-val">MQTT over TLS (Port 8883)</span>
-          </div>
-          <div class="info-item">
-            <span class="info-key">WiFi:</span>
-            <span class="info-val">Station Mode (WiFi Rumah)</span>
+      <div class="stack">
+        <div class="info-card">
+          <h3>Informasi Perangkat</h3>
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-key">Mode Koneksi</span>
+              <span class="info-val">Internet (MQTT via HiveMQ Cloud)</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Protocol</span>
+              <span class="info-val">MQTT over TLS (Port 8883)</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">WiFi</span>
+              <span class="info-val">Station Mode (WiFi Rumah)</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="info-card" style="margin-top: 1rem;">
-        <h3>Data JSON</h3>
-        <div class="json-box">
-          <div class="json-header">
-            <span>Payload Aktif</span>
-            <button class="btn-copy" id="btnCopyJson">Salin</button>
+        <div class="info-card">
+          <h3>Data JSON</h3>
+          <div class="json-box">
+            <div class="json-header">
+              <span>Payload Aktif</span>
+              <button class="btn-copy" id="btnCopyJson" type="button">Salin</button>
+            </div>
+            <pre class="json-code" id="jsonPayloadPreview"></pre>
           </div>
-          <pre class="json-code" id="jsonPayloadPreview"></pre>
+          <button class="btn-send" id="btnSendFromModal" type="button" style="margin-top: 0.75rem;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            <span>Kirim JSON Sekarang</span>
+          </button>
         </div>
-        <button class="btn-send" id="btnSendFromModal" style="margin-top: 0.75rem;">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-          <span>Kirim JSON Sekarang</span>
-        </button>
       </div>
     </section>
 
     <!-- PANDUAN -->
     <section class="tab-content" id="tabContentPanduan">
       <header class="page-header">
-        <h2 class="page-title">Panduan</h2>
+        <div>
+          <h2 class="page-title">Panduan</h2>
+        </div>
       </header>
 
-      <div class="info-card">
-        <h3>Pinout HUB12 (P10)</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>ESP8266</th><th>Panel P10</th><th>Fungsi</th></tr>
-            </thead>
-            <tbody>
-              <tr><td><code>D0 (GPIO16)</code></td><td><span class="pin-badge">A</span></td><td>Address A</td></tr>
-              <tr><td><code>D6 (GPIO12)</code></td><td><span class="pin-badge">B</span></td><td>Address B</td></tr>
-              <tr><td><code>D5 (GPIO14)</code></td><td><span class="pin-badge">CLK</span></td><td>Clock</td></tr>
-              <tr><td><code>D7 (GPIO13)</code></td><td><span class="pin-badge">R (DATA)</span></td><td>Data In</td></tr>
-              <tr><td><code>D8 (GPIO15)</code></td><td><span class="pin-badge">OE</span></td><td>Brightness PWM</td></tr>
-              <tr><td><code>D4 (GPIO2)</code></td><td><span class="pin-badge">LAT</span></td><td>Latch Strobe</td></tr>
-              <tr><td><code>GND</code></td><td><span class="pin-badge">GND</span></td><td>Ground</td></tr>
-            </tbody>
-          </table>
+      <div class="stack">
+        <div class="info-card">
+          <h3>Pinout HUB12 (P10)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>ESP8266</th><th>Panel P10</th><th>Fungsi</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>D0 (GPIO16)</code></td><td><span class="pin-badge">A</span></td><td>Address A</td></tr>
+                <tr><td><code>D6 (GPIO12)</code></td><td><span class="pin-badge">B</span></td><td>Address B</td></tr>
+                <tr><td><code>D5 (GPIO14)</code></td><td><span class="pin-badge">CLK</span></td><td>Clock</td></tr>
+                <tr><td><code>D7 (GPIO13)</code></td><td><span class="pin-badge">R (DATA)</span></td><td>Data In</td></tr>
+                <tr><td><code>D8 (GPIO15)</code></td><td><span class="pin-badge">OE</span></td><td>Brightness PWM</td></tr>
+                <tr><td><code>D4 (GPIO2)</code></td><td><span class="pin-badge">LAT</span></td><td>Latch Strobe</td></tr>
+                <tr><td><code>GND</code></td><td><span class="pin-badge">GND</span></td><td>Ground</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div class="info-card" style="margin-top: 1rem;">
-        <h3>Langkah Penggunaan</h3>
-        <ol class="steps">
-          <li><strong>Power Supply:</strong> Gunakan adaptor 5V (3A-5A) ke terminal power P10. Jangan dari ESP8266.</li>
-          <li><strong>WiFi:</strong> ESP8266 akan otomatis terhubung ke WiFi rumah (Station Mode).</li>
-          <li><strong>Buka Dashboard:</strong> Akses dashboard dari browser di mana saja (via internet).</li>
-          <li><strong>Daftar Akun:</strong> Buat akun baru atau masuk dengan akun yang sudah ada.</li>
-          <li><strong>Tambah Perangkat:</strong> Masukkan Device UID yang tertera di Serial Monitor ESP8266.</li>
-          <li><strong>Atur Panel:</strong> Ubah teks, animasi, kecepatan, dan kecerahan sesuai keinginan.</li>
-        </ol>
+        <div class="info-card">
+          <h3>Langkah Penggunaan</h3>
+          <ol class="steps">
+            <li><strong>Power Supply:</strong> Gunakan adaptor 5V (3A-5A) ke terminal power P10. Jangan dari ESP8266.</li>
+            <li><strong>WiFi:</strong> ESP8266 akan otomatis terhubung ke WiFi rumah (Station Mode).</li>
+            <li><strong>Buka Dashboard:</strong> Akses dashboard dari browser di mana saja (via internet).</li>
+            <li><strong>Daftar Akun:</strong> Buat akun baru atau masuk dengan akun yang sudah ada.</li>
+            <li><strong>Tambah Perangkat:</strong> Masukkan Device UID yang tertera di Serial Monitor ESP8266.</li>
+            <li><strong>Atur Panel:</strong> Ubah teks, animasi, kecepatan, dan kecerahan sesuai keinginan.</li>
+          </ol>
+        </div>
       </div>
     </section>
 
@@ -412,58 +375,55 @@
   <!-- FLOATING BAR -->
   <div class="bottom-bar">
     <div class="action-inner">
-      <button class="btn-send" id="btnSendToESP">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
+      <button class="btn-send" id="btnSendToESP" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         <span>KIRIM KE PANEL P10</span>
       </button>
     </div>
   </div>
 
   <!-- PAYLOAD MODAL -->
-  <div class="modal-overlay hidden" id="payloadModal">
+  <div class="modal-overlay hidden" id="payloadModal" role="dialog" aria-modal="true" aria-labelledby="payloadTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title">JSON Payload</h3>
-        <button class="modal-close" id="btnCloseModal">&times;</button>
+        <h3 class="modal-title" id="payloadTitle">JSON Payload</h3>
+        <button class="modal-close" id="btnCloseModal" type="button" aria-label="Tutup">&times;</button>
       </div>
       <div class="modal-body">
         <pre class="json-code" id="jsonPayloadModalPreview"></pre>
       </div>
       <div class="modal-footer">
-        <button class="btn-subtle" id="btnDismissModal">Tutup</button>
+        <button class="btn-ghost" id="btnDismissModal" type="button">Tutup</button>
       </div>
     </div>
   </div>
 
   <!-- ADD DEVICE MODAL -->
-  <div class="modal-overlay hidden" id="addDeviceModal">
+  <div class="modal-overlay hidden" id="addDeviceModal" role="dialog" aria-modal="true" aria-labelledby="addDeviceTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title">Tambah Perangkat</h3>
-        <button class="modal-close" onclick="document.getElementById('addDeviceModal').classList.add('hidden')">&times;</button>
+        <h3 class="modal-title" id="addDeviceTitle">Tambah Perangkat</h3>
+        <button class="modal-close" type="button" aria-label="Tutup" onclick="document.getElementById('addDeviceModal').classList.add('hidden')">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
           <label class="form-label" for="deviceUidInput">Device UID</label>
-          <input type="text" id="deviceUidInput" class="form-input" placeholder="Masukkan UID dari Serial Monitor">
+          <input type="text" id="deviceUidInput" class="form-input" placeholder="Masukkan UID dari Serial Monitor" autocomplete="off">
           <p class="form-hint">Buka Serial Monitor ESP8266 untuk melihat Device UID</p>
         </div>
         <div class="form-group">
           <label class="form-label" for="deviceNameInput">Nama Perangkat (opsional)</label>
-          <input type="text" id="deviceNameInput" class="form-input" placeholder="P10 Panel">
+          <input type="text" id="deviceNameInput" class="form-input" placeholder="P10 Panel" autocomplete="off">
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-subtle" id="btnCancelAddDevice">Batal</button>
-        <button class="btn-primary" id="btnConfirmAddDevice">Tambah</button>
+        <button class="btn-ghost" id="btnCancelAddDevice" type="button">Batal</button>
+        <button class="btn-primary" id="btnConfirmAddDevice" type="button">Tambah</button>
       </div>
     </div>
   </div>
 
-  <!-- TOAST -->
-  <div class="toast-shelf" id="toastContainer"></div>
+  <div class="toast-shelf" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
 </div>
 

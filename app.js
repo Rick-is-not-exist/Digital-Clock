@@ -49,9 +49,10 @@ const el = {
   btnToggleSimMode: document.getElementById('btnToggleSimMode'),
   badgeText: document.getElementById('badgeText'),
   btnPowerToggle: document.getElementById('btnPowerToggle'),
-  btnPowerToggleCard: document.getElementById('btnPowerToggleCard'),
   powerStatus: document.getElementById('powerStatus'),
   powerStatusCard: document.getElementById('powerStatusCard'),
+  btnThemeToggle: document.getElementById('btnThemeToggle'),
+  themeLabel: document.getElementById('themeLabel'),
   inputText1: document.getElementById('inputText1'),
   charCount1: document.getElementById('charCount1'),
   presetChips: document.querySelectorAll('.chip'),
@@ -91,20 +92,36 @@ const el = {
   mobileHeader: document.getElementById('mobileHeader')
 };
 
-window.toggleAccordion = function(header) {
-  header.parentElement.classList.toggle('open');
-};
+// ==================== THEME (Tempora Nova: default dark, light optional) ====================
+function initTheme() {
+  const saved = localStorage.getItem('tempora_theme');
+  const theme = saved || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeLabel(theme);
+}
+function updateThemeLabel(theme) {
+  if (el.themeLabel) el.themeLabel.textContent = theme === 'dark' ? 'Mode Gelap' : 'Mode Terang';
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tempora_theme', next);
+  updateThemeLabel(next);
+}
 
 // ==================== SIDEBAR TOGGLE (MOBILE) ====================
 function openSidebar() {
   if (el.appSidebar) el.appSidebar.classList.add('open');
   if (el.sidebarOverlay) el.sidebarOverlay.classList.add('active');
+  if (el.hamburgerBtn) el.hamburgerBtn.setAttribute('aria-expanded', 'true');
   document.body.style.overflow = 'hidden';
 }
 
 function closeSidebar() {
   if (el.appSidebar) el.appSidebar.classList.remove('open');
   if (el.sidebarOverlay) el.sidebarOverlay.classList.remove('active');
+  if (el.hamburgerBtn) el.hamburgerBtn.setAttribute('aria-expanded', 'false');
   document.body.style.overflow = '';
 }
 
@@ -118,6 +135,7 @@ function toggleSidebar() {
 
 // ==================== AUTH ====================
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   if (state.token && state.user) {
     showMainApp();
   } else {
@@ -127,6 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavigationTabs();
   setupEventListeners();
   startClockTicker();
+  updateCharCounts();
+  updateBadgeLabels();
 });
 
 function showAuthScreen() {
@@ -596,8 +616,8 @@ function setupEventListeners() {
     });
   }
 
+  if (el.btnThemeToggle) el.btnThemeToggle.addEventListener('click', toggleTheme);
   if (el.btnPowerToggle) el.btnPowerToggle.addEventListener('click', () => togglePower());
-  if (el.btnPowerToggleCard) el.btnPowerToggleCard.addEventListener('click', () => togglePower());
 
   if (el.btnSendToESP) el.btnSendToESP.addEventListener('click', () => sendFullConfig());
   if (el.btnSendFromModal) el.btnSendFromModal.addEventListener('click', () => sendFullConfig());
@@ -734,9 +754,6 @@ function updatePowerUI() {
   const isOn = state.power;
   if (el.btnPowerToggle) {
     el.btnPowerToggle.classList.toggle('off', !isOn);
-  }
-  if (el.btnPowerToggleCard) {
-    el.btnPowerToggleCard.classList.toggle('off', !isOn);
   }
   if (el.powerStatus) {
     el.powerStatus.textContent = isOn ? 'ON' : 'OFF';

@@ -10,7 +10,9 @@ router.use(auth);
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT d.id, d.device_uid, d.name, d.online, d.last_seen, d.created_at,
+      `SELECT d.id, d.device_uid, d.name,
+              CASE WHEN d.last_seen > NOW() - INTERVAL '2 minutes' THEN true ELSE false END as online,
+              d.last_seen, d.created_at,
               ds.text1, ds.anim, ds.speed, ds.clock_duration, ds.text_duration,
               ds.display_mode, ds.brightness, ds.auto_dimming, COALESCE(ds.power, true) as power
        FROM devices d
@@ -61,7 +63,9 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT d.id, d.device_uid, d.name, d.online, d.last_seen, d.created_at,
+      `SELECT d.id, d.device_uid, d.name,
+              CASE WHEN d.last_seen > NOW() - INTERVAL '2 minutes' THEN true ELSE false END as online,
+              d.last_seen, d.created_at,
               ds.text1, ds.anim, ds.speed, ds.clock_duration, ds.text_duration,
               ds.display_mode, ds.brightness, ds.auto_dimming, COALESCE(ds.power, true) as power
        FROM devices d

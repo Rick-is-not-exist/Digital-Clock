@@ -1368,11 +1368,9 @@ code {
    RESPONSIVE
    ========================================================================== */
 @media (max-width: 860px) {
-  /* Show mobile header */
+  /* Show mobile header + hamburger */
   .mobile-header { display: flex; }
-
-  /* Hide hamburger inside sidebar on mobile */
-  .hamburger-btn { display: none; }
+  .hamburger-btn { display: flex; }
 
   /* Sidebar slides in from left */
   .app-sidebar {

@@ -73,6 +73,7 @@ bool format_24h = true;
 bool show_seconds = true;
 bool panel_power = true;
 bool displayDirty = true;
+volatile bool displayUpdating = false;
 
 // Variabel Waktu Internal
 int current_hour = 12;
@@ -94,8 +95,8 @@ int dateScrollX = 32;
 unsigned long lastDateScrollTick = 0;
 unsigned long lastDateStaticTick = 0;
 int dayScrollCycles = 0;
-#define DAY_SCROLL_SPEED_MS 50
-#define DAY_SCROLL_MAX_CYCLES 2
+#define DAY_SCROLL_SPEED_MS 70
+#define DAY_SCROLL_MAX_CYCLES 1
 #define DATE_STATIC_DURATION 5000
 
 // Running Text
@@ -111,16 +112,8 @@ unsigned long lastStatusSent = 0;
 unsigned long lastNtpSync = 0;
 unsigned long lastMqttReconnect = 0;
 unsigned long lastMqttLoop = 0;
-unsigned long lastWifiReconnect = 0;
 #define NTP_RESYNC_INTERVAL 3600000
-#define WIFI_RECONNECT_INTERVAL 30000
 bool mqttConnected = false;
-
-// Deferred display operations (set in MQTT callback, applied in loop)
-bool pendingBrightness = false;
-int pendingBrightnessVal = 0;
-bool pendingPowerOn = false;
-bool pendingPowerOff = false;
 
 // Forward declarations for MQTT callbacks
 void connectMQTT();
@@ -402,7 +395,7 @@ void setup() {
   dmd.clear();
 
   // Auto-refresh display via Ticker — fires during yield() inside BearSSL
-  dmdRefreshTimer.attach_ms(2, []() { dmd.loop(); });
+  dmdRefreshTimer.attach_ms(2, []() { if (!displayUpdating) dmd.loop(); });
 
   // Show connecting message on panel
   dmd.setFont(ElektronMart5x6);
@@ -473,7 +466,6 @@ void setup() {
   connectMQTT();
 
   lastNtpSync = millis();
-  last_mode_switch = millis();
   lastStatusSent = millis();
   Serial.println("[SETUP] Ready!");
 }
@@ -544,26 +536,16 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   // Apply settings
   if (doc.containsKey("text1")) text1 = doc["text1"].as<String>();
   if (doc.containsKey("anim")) anim = doc["anim"].as<String>();
-  if (doc.containsKey("speed_ms")) speed_ms = constrain(doc["speed_ms"].as<int>(), 10, 200);
-  if (doc.containsKey("clock_duration")) clock_duration = constrain(doc["clock_duration"].as<int>(), 3, 300);
-  if (doc.containsKey("text_duration")) text_duration = constrain(doc["text_duration"].as<int>(), 3, 300);
+  if (doc.containsKey("speed_ms")) speed_ms = doc["speed_ms"].as<int>();
+  if (doc.containsKey("clock_duration")) clock_duration = doc["clock_duration"].as<int>();
+  if (doc.containsKey("text_duration")) text_duration = doc["text_duration"].as<int>();
   if (doc.containsKey("mode")) display_mode = doc["mode"].as<String>();
-  if (doc.containsKey("brightness_pwm")) {
-    pendingBrightnessVal = constrain(doc["brightness_pwm"].as<int>(), 0, 100);
-    pendingBrightness = true;
-  }
+  if (doc.containsKey("brightness_pwm")) brightness_pwm = doc["brightness_pwm"].as<int>();
   if (doc.containsKey("format_24h")) format_24h = doc["format_24h"].as<bool>();
   if (doc.containsKey("show_seconds")) show_seconds = doc["show_seconds"].as<bool>();
 
   if (doc.containsKey("power")) {
-    bool newPower = doc["power"].as<bool>();
-    if (newPower && !panel_power) {
-      pendingPowerOn = true;
-      Serial.println("[MQTT] Panel ON pending");
-    } else if (!newPower && panel_power) {
-      pendingPowerOff = true;
-      Serial.println("[MQTT] Panel OFF pending");
-    }
+    panel_power = doc["power"].as<bool>();
   }
 
   cacheValid = false;
@@ -611,11 +593,10 @@ void updateClockFromNTP() {
           current_hour++;
           if (current_hour >= 24) current_hour = 0;
         }
-        }
       }
-      } // end text1.length() > 0
     }
   }
+}
 
 const char* getDayName(int day) {
   const char* days[] = {"Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"};
@@ -717,14 +698,6 @@ void loop() {
     return;
   }
 
-  // WiFi reconnect (throttled)
-  if (WiFi.status() != WL_CONNECTED) {
-    if (millis() - lastWifiReconnect > WIFI_RECONNECT_INTERVAL) {
-      lastWifiReconnect = millis();
-      connectWiFi(savedSSID, savedPass);
-    }
-  }
-
   // MQTT reconnect (manual, throttled)
   if (!mqtt.connected()) {
     mqttConnected = false;
@@ -795,16 +768,14 @@ void loop() {
       
       if (displayDirty || secChanged || scrollTick) {
         if (secChanged) last_display_sec = current_sec;
+        displayUpdating = true;
         dmd.clear();
         displayDirty = false;
         renderClockOnP10();
         dmd.swapBuffers();
+        displayUpdating = false;
       }
     } else {
-      // Skip rendering if text is empty
-      if (text1.length() == 0) {
-        displayDirty = false;
-      } else {
       // Recalculate cache when text/anim changes
       if (text1 != last_text1 || anim != last_anim || !cacheValid) {
         fitsPanelCache = checkTextFitsPanel(text1.c_str(), text1.length());
@@ -820,6 +791,7 @@ void loop() {
 
       if (useStatic) {
         if (displayDirty) {
+          displayUpdating = true;
           dmd.clear();
           displayDirty = false;
           dmd.setFont(Mono5x7);
@@ -829,6 +801,7 @@ void loop() {
           int center_y = (16 - 7) / 2;
           dmd.drawText(center_x, center_y, text1.c_str(), text1.length());
           dmd.swapBuffers();
+          displayUpdating = false;
         }
       } else {
         if (millis() - last_scroll_tick >= speed_ms) {
@@ -845,35 +818,15 @@ void loop() {
         }
 
         if (displayDirty) {
+          displayUpdating = true;
           dmd.clear();
           dmd.setFont(EMSans8x16);
           dmd.drawText(scroll_x, 0, text1.c_str(), text1.length());
           dmd.swapBuffers();
+          displayUpdating = false;
           displayDirty = false;
         }
       }
     }
-  }
-
-  // Apply deferred display operations from MQTT callback (safe from ISR)
-  if (pendingBrightness) {
-    brightness_pwm = pendingBrightnessVal;
-    dmd.setBrightness(brightness_pwm);
-    pendingBrightness = false;
-  }
-  if (pendingPowerOn) {
-    panel_power = true;
-    dmd.setBrightness(brightness_pwm);
-    displayDirty = true;
-    pendingPowerOn = false;
-    Serial.println("[MQTT] Panel ON");
-  }
-  if (pendingPowerOff) {
-    panel_power = false;
-    dmd.setBrightness(0);
-    dmd.clear();
-    dmd.swapBuffers();
-    pendingPowerOff = false;
-    Serial.println("[MQTT] Panel OFF");
   }
 }

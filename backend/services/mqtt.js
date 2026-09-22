@@ -1,5 +1,4 @@
 const mqtt = require('mqtt');
-const { pool } = require('../config/database');
 
 let client = null;
 
@@ -47,6 +46,7 @@ function connectMQTT() {
 }
 
 async function handleStatus(deviceUID, payload) {
+  const { pool } = require('../config/database');
   try {
     const result = await pool.query(
       'UPDATE devices SET online = $1, last_seen = NOW() WHERE device_uid = $2',

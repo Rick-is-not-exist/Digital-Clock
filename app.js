@@ -7,6 +7,7 @@ const API_URL = 'https://digital-clock-production.up.railway.app';
 const state = {
   token: localStorage.getItem('p10_token') || null,
   user: JSON.parse(localStorage.getItem('p10_user') || 'null'),
+  plan: (JSON.parse(localStorage.getItem('p10_user') || 'null') || {}).plan || 'free',
   devices: [],
   activeDevice: null,
   connMode: localStorage.getItem('p10_conn_mode') || 'cloud',
@@ -114,17 +115,37 @@ function toggleTheme() {
 }
 
 // ==================== CONNECTION MODE (Cloud / Lokal) ====================
+function isPremium() {
+  if (!state.user || state.user.plan !== 'premium') return false;
+  if (state.user.premium_until && new Date(state.user.premium_until) <= new Date()) return false;
+  return true;
+}
+
 function toggleConnMode() {
-  state.connMode = state.connMode === 'local' ? 'cloud' : 'local';
+  const next = state.connMode === 'local' ? 'cloud' : 'local';
+  if (next === 'cloud' && !isPremium()) {
+    showToast('Fitur Cloud butuh Premium — tetap di Mode Lokal', 'error');
+    state.connMode = 'local';
+    localStorage.setItem('p10_conn_mode', 'local');
+    updateConnModeUI();
+    return;
+  }
+  state.connMode = next;
   localStorage.setItem('p10_conn_mode', state.connMode);
   updateConnModeUI();
 }
 
 function updateConnModeUI() {
   const isLocal = state.connMode === 'local';
-  if (el.connModeLabel) el.connModeLabel.textContent = isLocal ? 'Mode: Lokal (Gratis)' : 'Mode: Cloud (Premium)';
+  let label;
+  if (isLocal) {
+    label = 'Mode: Lokal (Gratis)';
+  } else {
+    label = isPremium() ? 'Mode: Cloud (Premium)' : 'Mode: Cloud (Premium) — terkunci';
+  }
+  if (el.connModeLabel) el.connModeLabel.textContent = label;
   if (el.connModeDot) el.connModeDot.classList.toggle('local', isLocal);
-  if (el.infoConnMode) el.infoConnMode.textContent = isLocal ? 'Lokal (Gratis)' : 'Cloud (Premium)';
+  if (el.infoConnMode) el.infoConnMode.textContent = isLocal ? 'Lokal (Gratis)' : (isPremium() ? 'Cloud (Premium)' : 'Cloud terkunci — butuh Premium');
 }
 
 function getLocalBase() {
@@ -199,10 +220,35 @@ function showMainApp() {
   if (el.authScreen) el.authScreen.classList.add('hidden');
   if (el.mainApp) el.mainApp.classList.remove('hidden');
   if (el.userName) el.userName.textContent = state.user.name || state.user.email;
+  refreshUserPlan();
+  if (state.connMode === 'cloud' && !isPremium()) {
+    state.connMode = 'local';
+    localStorage.setItem('p10_conn_mode', 'local');
+  }
+  updateConnModeUI();
   loadDevices();
   startSimulatorCycle();
   updateSimulatorUI();
   startStatusPolling();
+}
+
+async function refreshUserPlan() {
+  if (!state.token) return;
+  try {
+    const res = await apiFetch('/api/auth/me');
+    if (!res.ok) return;
+    const me = await res.json();
+    if (me && me.plan) {
+      state.user = { ...state.user, ...me };
+      state.plan = me.plan;
+      localStorage.setItem('p10_user', JSON.stringify(state.user));
+      if (state.connMode === 'cloud' && !isPremium()) {
+        state.connMode = 'local';
+        localStorage.setItem('p10_conn_mode', 'local');
+      }
+      updateConnModeUI();
+    }
+  } catch (e) {}
 }
 
 let statusPollTimer = null;
@@ -274,6 +320,7 @@ function setupAuthListeners() {
 
         state.token = data.token;
         state.user = data.user;
+        state.plan = (data.user && data.user.plan) || 'free';
         localStorage.setItem('p10_token', data.token);
         localStorage.setItem('p10_user', JSON.stringify(data.user));
         showMainApp();
@@ -707,7 +754,7 @@ function updateDeviceTab() {
   if (el.infoConnMode) {
     const isLocal = state.connMode === 'local';
     const hasHost = !!(device.local_host && String(device.local_host).trim());
-    let modeText = isLocal ? 'Lokal (Gratis)' : 'Cloud (Premium)';
+    let modeText = isLocal ? 'Lokal (Gratis)' : (isPremium() ? 'Cloud (Premium)' : 'Cloud terkunci');
     if (isLocal && hasHost) modeText += ` \u2192 ${device.local_host}`;
     else if (isLocal && !hasHost) modeText += ' \u2014 isi IP di bawah';
     el.infoConnMode.textContent = modeText;
@@ -807,6 +854,14 @@ async function sendFullConfig() {
     return;
   }
 
+  if (!isPremium()) {
+    state.connMode = 'local';
+    localStorage.setItem('p10_conn_mode', 'local');
+    updateConnModeUI();
+    showToast('Butuh langganan Premium untuk Cloud — dialihkan ke Mode Lokal', 'error');
+    return;
+  }
+
   const payload = buildPayload();
   showToast('Mengirim ke Panel P10...', 'info');
 
@@ -815,6 +870,14 @@ async function sendFullConfig() {
       method: 'PUT',
       body: JSON.stringify(payload)
     });
+
+    if (res.status === 403) {
+      state.connMode = 'local';
+      localStorage.setItem('p10_conn_mode', 'local');
+      updateConnModeUI();
+      showToast('Premium diperlukan — dialihkan ke Mode Lokal', 'error');
+      return;
+    }
 
     if (!res.ok) {
       const data = await res.json();
@@ -868,11 +931,30 @@ async function togglePower() {
     return;
   }
 
+  if (!isPremium()) {
+    state.connMode = 'local';
+    localStorage.setItem('p10_conn_mode', 'local');
+    updateConnModeUI();
+    state.power = !newPower;
+    updatePowerUI();
+    showToast('Butuh Premium untuk Cloud — dialihkan ke Mode Lokal', 'error');
+    return;
+  }
+
   try {
     const res = await apiFetch(`/api/devices/${state.activeDevice.id}/settings`, {
       method: 'PUT',
       body: JSON.stringify({ power: newPower })
     });
+    if (res.status === 403) {
+      state.connMode = 'local';
+      localStorage.setItem('p10_conn_mode', 'local');
+      updateConnModeUI();
+      state.power = !newPower;
+      updatePowerUI();
+      showToast('Premium diperlukan — dialihkan ke Mode Lokal', 'error');
+      return;
+    }
     showToast(newPower ? 'Panel dinyalakan' : 'Panel dimatikan', 'success');
   } catch (err) {
     state.power = !newPower;

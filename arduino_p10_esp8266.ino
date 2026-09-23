@@ -739,7 +739,7 @@ void applySettings(const char* json) {
 
   if (brightness_pwm < 0) brightness_pwm = 0;
   if (brightness_pwm > 255) brightness_pwm = 255;
-  dmd.setBrightness(brightness_pwm);
+  dmd.setBrightness(panel_power ? brightness_pwm : 0);
 
   cacheValid = false;
   displayDirty = true;
@@ -1026,6 +1026,18 @@ void loop() {
           displayDirty = false;
         }
       }
+    }
+  } else {
+    // Power OFF — clear both buffers once so LEDs go fully dark
+    if (displayDirty) {
+      displayUpdating = true;
+      dmd.clear();
+      dmd.swapBuffers();
+      dmd.clear();
+      dmd.swapBuffers();
+      displayDirty = false;
+      displayUpdating = false;
+      Serial.println("[DISPLAY] Panel OFF — cleared");
     }
   }
 }

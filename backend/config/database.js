@@ -14,6 +14,8 @@ async function initDB() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         name VARCHAR(100),
+        plan VARCHAR(16) DEFAULT 'free',
+        premium_until TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -57,6 +59,12 @@ async function initDB() {
     `);
     await client.query(`
       ALTER TABLE devices ADD COLUMN IF NOT EXISTS local_host VARCHAR(255)
+    `);
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(16) DEFAULT 'free'
+    `);
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP
     `);
     console.log('[DB] Tables initialized');
   } finally {

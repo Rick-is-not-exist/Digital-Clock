@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../config/database');
 const { publishCommand } = require('../services/mqtt');
 const auth = require('../middleware/auth');
+const { requirePremium } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -116,7 +117,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id/settings', async (req, res) => {
+router.put('/:id/settings', requirePremium, async (req, res) => {
   try {
     const { id } = req.params;
     const deviceCheck = await pool.query(
@@ -177,7 +178,7 @@ router.put('/:id/settings', async (req, res) => {
   }
 });
 
-router.post('/:id/sync-time', async (req, res) => {
+router.post('/:id/sync-time', requirePremium, async (req, res) => {
   try {
     const { id } = req.params;
     const deviceCheck = await pool.query(

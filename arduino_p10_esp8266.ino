@@ -1,10 +1,12 @@
 /*
   =============================================================================
   PROYEK: P10 IoT Neon Clock & Running Text Controller (ESP8266 + DMDESP)
-  MODE: WiFi AP Mode (Captive Portal) + STA Mode + MQTT via HiveMQ Cloud
+  MODE: WiFi AP Mode (Captive Portal) + STA Mode + Local HTTP + MQTT via HiveMQ Cloud
   FUNGSI:
    - AP Mode: captive portal untuk setup WiFi pertama kali
-   - STA Mode: koneksi ke WiFi client + MQTT cloud
+   - STA Mode: koneksi ke WiFi client + Local HTTP control (Mode Gratis)
+   - Local HTTP: web server di http://p10-<uid>.local/ atau IP (kontrol WiFi sama)
+   - MQTT cloud: kontrol dari mana saja (Mode Premium)
    - NTP time sync otomatis
    - Panel P10 display: jam, running text, animasi
   =============================================================================
@@ -21,6 +23,7 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
 #include <DNSServer.h>
 #include <EEPROM.h>
 #include <PubSubClient.h>
@@ -118,6 +121,14 @@ bool mqttConnected = false;
 // Forward declarations for MQTT callbacks
 void connectMQTT();
 void onMqttMessage(char* topic, byte* payload, unsigned int length);
+void applySettings(const char* json);
+void startLocalServer();
+void sendCorsHeaders();
+void handleLocalRoot();
+void handleGetSettings();
+void handlePutSettings();
+void handleOptions();
+bool mdnsStarted = false;
 
 // ==================== EEPROM ====================
 void saveWiFiCredentials(String ssid, String pass) {
@@ -339,9 +350,182 @@ void handleSave() {
 }
 
 void handleNotFound() {
+  if (server.method() == HTTP_OPTIONS) {
+    handleOptions();
+    return;
+  }
   server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
   server.send(302, "text/plain", "");
   server.client().stop();
+}
+
+// ==================== LOCAL CONTROL (Mode Gratis — HTTP di WiFi yang sama) ====================
+const char* localPage = R"rawliteral(
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tempora Nova - Kontrol Lokal</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1e16;color:#f9f5e8;min-height:100vh;padding:16px}
+.wrap{max-width:420px;margin:0 auto}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:1.05rem;margin-bottom:4px}
+.sub{font-size:.78rem;color:#a89f83;margin-bottom:20px}
+.card{background:#1a2e22;border:1px solid #2a4a36;border-radius:14px;padding:18px 16px;margin-bottom:12px}
+h3{font-size:.85rem;color:#c5a059;margin-bottom:12px;letter-spacing:.04em;text-transform:uppercase}
+label{display:block;font-size:.8rem;color:#d8cdb0;margin-bottom:6px;font-weight:500}
+input[type=text],select{width:100%;padding:11px 14px;border:1px solid #2a4a36;border-radius:10px;background:#0f1e16;color:#f9f5e8;font-size:15px;margin-bottom:14px;outline:none}
+input:focus,select:focus{border-color:#c5a059}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{flex:1;min-width:90px;padding:10px 8px;border:1px solid #2a4a36;border-radius:10px;background:#13211a;color:#d8cdb0;font-size:.8rem;cursor:pointer;text-align:center}
+.chip.on{border-color:#c5a059;background:rgba(197,160,89,.14);color:#f9f5e8;font-weight:600}
+.rng{width:100%;margin-bottom:6px;accent-color:#c5a059}
+.val{font-size:.75rem;color:#a89f83;text-align:right;margin-bottom:12px}
+.btn{width:100%;padding:14px;border:none;border-radius:10px;background:#c5a059;color:#1a2e22;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+.btn:active{opacity:.85}
+.btn.power{background:#13211a;border:1px solid #2a4a36;color:#f9f5e8;margin-top:8px}
+.btn.power.off{border-color:#dc2626;color:#fca5a5}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1a2e22;border:1px solid #2a4a36;color:#f9f5e8;padding:10px 18px;border-radius:10px;font-size:.85rem;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+.hint{font-size:.72rem;color:#a89f83;text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">TEMPORA NOVA</div>
+  <div class="sub">Mode Lokal (Gratis) &middot; kontrol di WiFi yang sama</div>
+
+  <div class="card">
+    <h3>Pesan Teks</h3>
+    <label for="t">Isi pesan (maks 150)</label>
+    <input type="text" id="t" maxlength="150" value="HALLO">
+    <div class="row">
+      <button class="chip" type="button" data-s="SELAMAT DATANG">Selamat Datang</button>
+      <button class="chip" type="button" data-s="TOKO BUKA - SILAKAN MASUK">Toko Buka</button>
+      <button class="chip" type="button" data-s="WAKTU SHOLAT TELAH TIBA">Waktu Sholat</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Mode &amp; Animasi</h3>
+    <label>Mode tampilan</label>
+    <div class="row" id="modes">
+      <button class="chip on" type="button" data-v="cycle">Bergantian</button>
+      <button class="chip" type="button" data-v="clock_only">Jam Saja</button>
+      <button class="chip" type="button" data-v="text_only">Teks Saja</button>
+    </div>
+    <label>Animasi</label>
+    <div class="row" id="anims">
+      <button class="chip on" type="button" data-v="scroll_left">Scroll Kiri</button>
+      <button class="chip" type="button" data-v="scroll_right">Scroll Kanan</button>
+      <button class="chip" type="button" data-v="static">Diam</button>
+    </div>
+    <label for="sp">Kecepatan <span id="spv">Level 5</span></label>
+    <input type="range" class="rng" id="sp" min="1" max="10" value="5">
+    <label for="br">Kecerahan <span id="brv">20%</span></label>
+    <input type="range" class="rng" id="br" min="5" max="100" value="20">
+    <label for="cd">Durasi jam <span id="cdv">10s</span></label>
+    <input type="range" class="rng" id="cd" min="3" max="60" value="10">
+    <label for="td">Durasi teks <span id="tdv">15s</span></label>
+    <input type="range" class="rng" id="td" min="3" max="60" value="15">
+  </div>
+
+  <button class="btn" id="send" type="button">KIRIM KE PANEL</button>
+  <button class="btn power" id="pwr" type="button">Panel: ON</button>
+  <div class="hint">Buka via IP panel atau p10-&lt;uid&gt;.local &middot; tanpa internet</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var mode='cycle',anim='scroll_left',power=true;
+function pick(id,cb){document.getElementById(id).addEventListener('click',function(e){var b=e.target.closest('.chip');if(!b)return;this.querySelectorAll('.chip').forEach(function(c){c.classList.remove('on')});b.classList.add('on');cb(b.dataset.v||b.dataset.s)})}
+pick('modes',function(v){mode=v});pick('anims',function(v){anim=v});
+document.querySelectorAll('.chip[data-s]').forEach(function(b){b.addEventListener('click',function(){document.getElementById('t').value=this.dataset.s})});
+function bind(rid,lid,f){var r=document.getElementById(rid),l=document.getElementById(lid);r.addEventListener('input',function(){l.textContent=f(r.value)})}
+bind('sp','spv',function(v){return 'Level '+v});bind('br','brv',function(v){return v+'%'});bind('cd','cdv',function(v){return v+'s'});bind('td','tdv',function(v){return v+'s'});
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2500)}
+function payload(){return{text1:document.getElementById('t').value,anim:anim,speed_ms:Math.max(15,120-(parseInt(document.getElementById('sp').value,10)*10)),clock_duration:parseInt(document.getElementById('cd').value,10),text_duration:parseInt(document.getElementById('td').value,10),mode:mode,brightness_pwm:Math.round(parseInt(document.getElementById('br').value,10)*255/100),power:power,format_24h:true,show_seconds:true}}
+document.getElementById('send').addEventListener('click',function(){fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())}).then(function(r){toast(r.ok?'Terkirim ke panel!':'Gagal kirim')}).catch(function(){toast('Gagal koneksi')})});
+document.getElementById('pwr').addEventListener('click',function(){power=!power;this.textContent='Panel: '+(power?'ON':'OFF');this.classList.toggle('off',!power);fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({power:power})}).catch(function(){})});
+fetch('/api/status').then(function(r){return r.json()}).then(function(s){if(s.text1!=null)document.getElementById('t').value=s.text1;if(s.power===false){power=false;var p=document.getElementById('pwr');p.textContent='Panel: OFF';p.classList.add('off')}}).catch(function(){});
+</script>
+</body>
+</html>
+)rawliteral";
+
+void sendCorsHeaders() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+void handleOptions() {
+  sendCorsHeaders();
+  server.send(204);
+}
+
+void handleLocalRoot() {
+  sendCorsHeaders();
+  server.send(200, "text/html", localPage);
+}
+
+void handleGetSettings() {
+  StaticJsonDocument<512> doc;
+  doc["text1"] = text1;
+  doc["anim"] = anim;
+  doc["speed_ms"] = speed_ms;
+  doc["clock_duration"] = clock_duration;
+  doc["text_duration"] = text_duration;
+  doc["mode"] = display_mode;
+  doc["brightness_pwm"] = brightness_pwm;
+  doc["power"] = panel_power;
+  doc["format_24h"] = format_24h;
+  doc["show_seconds"] = show_seconds;
+  doc["device_uid"] = deviceUID;
+  String out;
+  serializeJson(doc, out);
+  sendCorsHeaders();
+  server.send(200, "application/json", out);
+}
+
+void handlePutSettings() {
+  String body = server.arg("plain");
+  if (body.length() == 0) {
+    sendCorsHeaders();
+    server.send(400, "application/json", "{\"error\":\"empty body\"}");
+    return;
+  }
+  applySettings(body.c_str());
+  sendCorsHeaders();
+  server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void startLocalServer() {
+  server.on("/", HTTP_GET, handleLocalRoot);
+  server.on("/api/status", HTTP_GET, handleGetSettings);
+  server.on("/api/settings", HTTP_PUT, handlePutSettings);
+  server.on("/api/settings", HTTP_OPTIONS, handleOptions);
+  server.onNotFound([]() {
+    if (server.method() == HTTP_OPTIONS) {
+      handleOptions();
+      return;
+    }
+    sendCorsHeaders();
+    server.send(404, "application/json", "{\"error\":\"not found\"}");
+  });
+  server.begin();
+
+  String mdnsName = "p10-" + deviceUID;
+  if (MDNS.begin(mdnsName.c_str())) {
+    MDNS.addService("http", "tcp", 80);
+    mdnsStarted = true;
+    Serial.printf("[LOCAL] Web server ready: http://%s.local/ (or IP)\n", mdnsName.c_str());
+  } else {
+    Serial.println("[LOCAL] Web server ready (mDNS failed) — use IP");
+  }
+  Serial.print("[LOCAL] IP: ");
+  Serial.println(WiFi.localIP());
 }
 
 void startCaptivePortal() {
@@ -450,6 +634,9 @@ void setup() {
     Serial.println("\n[NTP] Sync timeout, continuing...");
   }
 
+  // Local HTTP control server (Mode Gratis — WiFi yang sama)
+  startLocalServer();
+
   // Setup MQTT
   String clientId = "p10_" + deviceUID;
   String statusTopic = "p10/" + deviceUID + "/status";
@@ -524,16 +711,18 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   msg[length] = '\0';
 
   Serial.printf("[MQTT] Received on %s: %s\n", topic, msg);
+  applySettings(msg);
+}
 
+void applySettings(const char* json) {
   StaticJsonDocument<1024> doc;
-  DeserializationError error = deserializeJson(doc, msg);
+  DeserializationError error = deserializeJson(doc, json);
 
   if (error) {
-    Serial.printf("[MQTT] JSON parse error: %s\n", error.c_str());
+    Serial.printf("[SETTINGS] JSON parse error: %s\n", error.c_str());
     return;
   }
 
-  // Apply settings
   if (doc.containsKey("text1")) text1 = doc["text1"].as<String>();
   if (doc.containsKey("anim")) anim = doc["anim"].as<String>();
   if (doc.containsKey("speed_ms")) speed_ms = doc["speed_ms"].as<int>();
@@ -548,9 +737,13 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     panel_power = doc["power"].as<bool>();
   }
 
+  if (brightness_pwm < 0) brightness_pwm = 0;
+  if (brightness_pwm > 255) brightness_pwm = 255;
+  dmd.setBrightness(brightness_pwm);
+
   cacheValid = false;
   displayDirty = true;
-  Serial.println("[MQTT] Settings applied!");
+  Serial.println("[SETTINGS] Applied!");
 }
 
 // ==================== STATUS ====================
@@ -696,6 +889,12 @@ void loop() {
   if (apMode) {
     handlePortalClient();
     return;
+  }
+
+  // STA Mode — local control web server + mDNS
+  server.handleClient();
+  if (mdnsStarted) {
+    MDNS.update();
   }
 
   // MQTT reconnect (manual, throttled)

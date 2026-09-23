@@ -10,7 +10,7 @@ router.use(auth);
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT d.id, d.device_uid, d.name,
+      `SELECT d.id, d.device_uid, d.name, d.local_host,
               CASE WHEN d.last_seen > NOW() - INTERVAL '2 minutes' THEN true ELSE false END as online,
               d.last_seen, d.created_at,
               ds.text1, ds.anim, ds.speed, ds.clock_duration, ds.text_duration,
@@ -63,7 +63,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT d.id, d.device_uid, d.name,
+      `SELECT d.id, d.device_uid, d.name, d.local_host,
               CASE WHEN d.last_seen > NOW() - INTERVAL '2 minutes' THEN true ELSE false END as online,
               d.last_seen, d.created_at,
               ds.text1, ds.anim, ds.speed, ds.clock_duration, ds.text_duration,
@@ -78,6 +78,40 @@ router.get('/:id', async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, local_host } = req.body;
+
+    const sets = [];
+    const vals = [];
+    if (name !== undefined) {
+      vals.push(name);
+      sets.push(`name = $${vals.length}`);
+    }
+    if (local_host !== undefined) {
+      vals.push(local_host || null);
+      sets.push(`local_host = $${vals.length}`);
+    }
+    if (sets.length === 0) {
+      return res.status(400).json({ error: 'Nothing to update' });
+    }
+    vals.push(id, req.user.id);
+
+    const result = await pool.query(
+      `UPDATE devices SET ${sets.join(', ')} WHERE id = $${vals.length - 1} AND user_id = $${vals.length} RETURNING id, device_uid, name, local_host`,
+      vals
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[DEVICES] Update error:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

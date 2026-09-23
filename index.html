@@ -103,6 +103,11 @@
     </div>
 
     <div class="sidebar-footer">
+      <button class="theme-toggle" id="btnConnMode" type="button" aria-label="Ganti mode koneksi">
+        <span class="conn-dot" id="connModeDot" aria-hidden="true"></span>
+        <span class="theme-label" id="connModeLabel">Mode: Cloud</span>
+      </button>
+
       <button class="theme-toggle" id="btnThemeToggle" type="button" aria-label="Ganti tema">
         <span class="theme-toggle-track" aria-hidden="true">
           <svg class="theme-icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
@@ -309,6 +314,20 @@
               <span class="info-key">Terakhir Online</span>
               <span class="info-val" id="infoLastSeen">-</span>
             </div>
+            <div class="info-item">
+              <span class="info-key">Mode Koneksi</span>
+              <span class="info-val" id="infoConnMode">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Mode Lokal (Gratis)</h3>
+          <p class="info-note">Isi IP panel (contoh: <code>192.168.1.50</code>) atau hostname <code>p10-&lt;uid&gt;.local</code>. Panel dan perangkat ini harus di WiFi yang sama.</p>
+          <div class="local-host-row">
+            <label class="sr-only" for="localHostInput">IP Lokal Panel</label>
+            <input type="text" id="localHostInput" class="form-select" placeholder="192.168.1.50 atau p10-xxxxxx.local" autocomplete="off" spellcheck="false">
+            <button class="btn-secondary" id="btnSaveLocalHost" type="button">Simpan</button>
           </div>
         </div>
       </div>
@@ -324,17 +343,109 @@
 
       <div class="stack">
         <div class="info-card">
-          <h3>Cara Menggunakan Dashboard</h3>
+          <h3>Memulai Cepat</h3>
           <ol class="steps">
-            <li><strong>Login / Daftar:</strong> Buka dashboard dari browser, buat akun baru atau masuk dengan akun yang sudah ada.</li>
-            <li><strong>Tambah Perangkat:</strong> Klik tombol "+" di dropdown perangkat, masukkan Device UID yang muncul di panel P10 saat pertama kali dinyalakan (5 detik pertama).</li>
-            <li><strong>Atur Pesan:</strong> Ketik teks yang ingin ditampilkan, atau pilih dari template yang tersedia.</li>
-            <li><strong>Pilih Animasi:</strong> Pilih jenis animasi (Scroll Kiri, Scroll Kanan, atau Diam) dan atur kecepatannya.</li>
-            <li><strong>Atur Mode Tampilan:</strong> Pilih Bergantian (jam dan teks bergantian), Jam Saja, atau Teks Saja.</li>
-            <li><strong>Kirim ke Panel:</strong> Klik tombol "KIRIM KE PANEL P10" untuk mengirim pengaturan ke perangkat.</li>
-            <li><strong>Ganti Tema:</strong> Klik ikon matahari/bulan di sidebar untuk beralih antara mode gelap dan terang.</li>
-            <li><strong>Daya Panel:</strong> Gunakan tombol "Panel: ON/OFF" di sidebar untuk menyalakan atau mematikan tampilan panel.</li>
+            <li><strong>Nyalakan panel</strong> dan tunggu hingga tampil jam (atau "SETP" jika belum terhubung WiFi).</li>
+            <li><strong>Sambungkan WiFi:</strong> Jika panel menampilkan "SETP", buka WiFi HP, sambung ke jaringan <strong>P10-XXXXXX</strong>, lalu isi nama dan password WiFi rumah/toko di halaman yang terbuka.</li>
+            <li><strong>Daftar / Login</strong> di dashboard ini.</li>
+            <li><strong>Tambah Perangkat:</strong> Klik "+" di dropdown, masukkan Device UID (terlihat di panel saat baru dinyalakan, atau dari nama jaringan WiFi P10-XXXXXX).</li>
+            <li><strong>Atur pesan, mode, dan animasi</strong> sesuai keinginan.</li>
+            <li><strong>Klik "KIRIM KE PANEL P10"</strong> untuk mengirim pengaturan ke panel.</li>
           </ol>
+        </div>
+
+        <div class="info-card">
+          <h3>Setup WiFi Panel</h3>
+          <p>Jika panel menampilkan <strong>SETP</strong>, panel belum terhubung ke WiFi. Ikuti langkah berikut:</p>
+          <ol class="steps">
+            <li>Buka <strong>Pengaturan WiFi</strong> di HP.</li>
+            <li>Cari jaringan bernama <strong>P10-XXXXXX</strong> (contoh: P10-2d80fd). Tidak perlu password.</li>
+            <li>Setelah terhubung, halaman pengaturan akan terbuka otomatis. Jika tidak, buka browser dan ketik <strong>192.168.4.1</strong>.</li>
+            <li>Masukkan <strong>Nama WiFi</strong> dan <strong>Password WiFi</strong> rumah/toko Anda (harus 2.4GHz).</li>
+            <li>Tekan <strong>Simpan &amp; Hubungkan</strong>. Tunggu panel restart dan menampilkan jam.</li>
+          </ol>
+        </div>
+
+        <div class="info-card">
+          <h3>Mengontrol Panel</h3>
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-key">Pesan Teks</span>
+              <span class="info-val">Ketik teks (maks 150 karakter) atau pilih template</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Mode Tampilan</span>
+              <span class="info-val">Bergantian / Jam Saja / Teks Saja</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Animasi</span>
+              <span class="info-val">Scroll Kiri / Scroll Kanan / Diam</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Kecepatan</span>
+              <span class="info-val">Level 1 (lambat) – Level 10 (cepat)</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Durasi</span>
+              <span class="info-val">Jam dan teks: 3–60 detik (mode Bergantian)</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Kecerahan</span>
+              <span class="info-val">5% – 100%</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Daya Panel</span>
+              <span class="info-val">Tombol Panel ON/OFF di sidebar</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Kirim</span>
+              <span class="info-val">Selalu klik "KIRIM KE PANEL P10" setelah mengubah pengaturan</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Status Perangkat</h3>
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-key">Online (hijau)</span>
+              <span class="info-val">Panel terhubung dan dapat dikontrol</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Offline (abu-abu)</span>
+              <span class="info-val">Panel mati, WiFi putus, atau belum menyala</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Catatan</span>
+              <span class="info-val">Status butuh hingga 2 menit untuk berubah ke Offline</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Masalah Umum</h3>
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-key">Panel SETP terus</span>
+              <span class="info-val">Ulangi setup WiFi. Pastikan WiFi 2.4GHz dan password benar.</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Tidak muncul di dashboard</span>
+              <span class="info-val">Pastikan Device UID benar dan tidak sudah terdaftar akun lain.</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Status Offline</span>
+              <span class="info-val">Cek panel menyala dan WiFi terhubung. Tunggu 2 menit.</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Teks tidak muncul</span>
+              <span class="info-val">Pastikan sudah klik "KIRIM KE PANEL P10" dan mode bukan "Jam Saja".</span>
+            </div>
+            <div class="info-item">
+              <span class="info-key">Lupa Device UID</span>
+              <span class="info-val">Lihat nama jaringan WiFi panel: P10-XXXXXX (XXXXXX = UID).</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>

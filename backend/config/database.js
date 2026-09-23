@@ -25,6 +25,7 @@ async function initDB() {
         mqtt_topic VARCHAR(255) NOT NULL,
         online BOOLEAN DEFAULT false,
         last_seen TIMESTAMP,
+        local_host VARCHAR(255),
         created_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -53,6 +54,9 @@ async function initDB() {
     `);
     await client.query(`
       ALTER TABLE device_settings ADD COLUMN IF NOT EXISTS power BOOLEAN DEFAULT true
+    `);
+    await client.query(`
+      ALTER TABLE devices ADD COLUMN IF NOT EXISTS local_host VARCHAR(255)
     `);
     console.log('[DB] Tables initialized');
   } finally {

@@ -202,6 +202,32 @@ html[data-theme="light"] .theme-toggle-track { background: var(--accent); }
 html[data-theme="dark"] .theme-icon.sun { opacity: 0.35; }
 html[data-theme="light"] .theme-icon.moon { opacity: 0.35; }
 
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); flex-shrink: 0;
+  box-shadow: 0 0 6px var(--accent);
+}
+.conn-dot.local { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.btn-secondary {
+  padding: 0.55rem 1rem; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.info-note {
+  font-size: 0.78rem; color: var(--text-2); line-height: 1.5;
+  margin-bottom: 0.75rem;
+}
+.info-note code {
+  font-size: 0.75rem; padding: 0.1rem 0.35rem;
+  background: var(--surface-2); border-radius: 4px;
+}
+.local-host-row {
+  display: flex; gap: 0.5rem;
+}
+.local-host-row .form-select { flex: 1; margin-bottom: 0; }
+
 .device-status-pill {
   display: flex; align-items: center; gap: 0.45rem;
   padding: 0.45rem 0.65rem; border-radius: 999px;

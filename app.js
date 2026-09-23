@@ -9,6 +9,7 @@ const state = {
   user: JSON.parse(localStorage.getItem('p10_user') || 'null'),
   devices: [],
   activeDevice: null,
+  connMode: localStorage.getItem('p10_conn_mode') || 'cloud',
   text1: "HALLO",
   anim: "scroll_left",
   speed: 5,
@@ -82,6 +83,12 @@ const el = {
   infoDeviceUid: document.getElementById('infoDeviceUid'),
   infoDeviceStatus: document.getElementById('infoDeviceStatus'),
   infoLastSeen: document.getElementById('infoLastSeen'),
+  infoConnMode: document.getElementById('infoConnMode'),
+  btnConnMode: document.getElementById('btnConnMode'),
+  connModeLabel: document.getElementById('connModeLabel'),
+  connModeDot: document.getElementById('connModeDot'),
+  localHostInput: document.getElementById('localHostInput'),
+  btnSaveLocalHost: document.getElementById('btnSaveLocalHost'),
   hamburgerBtn: document.getElementById('hamburgerBtn'),
   sidebarOverlay: document.getElementById('sidebarOverlay'),
   appSidebar: document.getElementById('appSidebar'),
@@ -104,6 +111,43 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('tempora_theme', next);
   updateThemeLabel(next);
+}
+
+// ==================== CONNECTION MODE (Cloud / Lokal) ====================
+function toggleConnMode() {
+  state.connMode = state.connMode === 'local' ? 'cloud' : 'local';
+  localStorage.setItem('p10_conn_mode', state.connMode);
+  updateConnModeUI();
+}
+
+function updateConnModeUI() {
+  const isLocal = state.connMode === 'local';
+  if (el.connModeLabel) el.connModeLabel.textContent = isLocal ? 'Mode: Lokal (Gratis)' : 'Mode: Cloud (Premium)';
+  if (el.connModeDot) el.connModeDot.classList.toggle('local', isLocal);
+  if (el.infoConnMode) el.infoConnMode.textContent = isLocal ? 'Lokal (Gratis)' : 'Cloud (Premium)';
+}
+
+function getLocalBase() {
+  if (!state.activeDevice || !state.activeDevice.local_host) return null;
+  let host = String(state.activeDevice.local_host).trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  if (!host) return null;
+  return `http://${host}`;
+}
+
+function buildLocalPayload(overrides = {}) {
+  const p = { ...buildPayload(), ...overrides };
+  return {
+    text1: p.text1,
+    anim: p.anim,
+    speed_ms: Math.max(15, 120 - (p.speed * 10)),
+    clock_duration: p.clock_duration,
+    text_duration: p.text_duration,
+    mode: p.display_mode,
+    brightness_pwm: Math.round((p.brightness / 100) * 255),
+    power: p.power !== false,
+    format_24h: true,
+    show_seconds: true
+  };
 }
 
 // ==================== SIDEBAR TOGGLE (MOBILE) ====================
@@ -132,6 +176,7 @@ function toggleSidebar() {
 // ==================== AUTH ====================
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  updateConnModeUI();
   if (state.token && state.user) {
     showMainApp();
   } else {
@@ -612,9 +657,12 @@ function setupEventListeners() {
   }
 
   if (el.btnThemeToggle) el.btnThemeToggle.addEventListener('click', toggleTheme);
+  if (el.btnConnMode) el.btnConnMode.addEventListener('click', toggleConnMode);
   if (el.btnPowerToggle) el.btnPowerToggle.addEventListener('click', () => togglePower());
 
   if (el.btnSendToESP) el.btnSendToESP.addEventListener('click', () => sendFullConfig());
+
+  if (el.btnSaveLocalHost) el.btnSaveLocalHost.addEventListener('click', saveLocalHost);
 
   if (el.deviceSelect) {
     el.deviceSelect.addEventListener('change', (e) => {
@@ -656,6 +704,17 @@ function updateDeviceTab() {
   if (el.infoDeviceName) el.infoDeviceName.textContent = device.name || '-';
   if (el.infoDeviceUid) el.infoDeviceUid.textContent = device.device_uid || '-';
 
+  if (el.infoConnMode) {
+    const isLocal = state.connMode === 'local';
+    const hasHost = !!(device.local_host && String(device.local_host).trim());
+    let modeText = isLocal ? 'Lokal (Gratis)' : 'Cloud (Premium)';
+    if (isLocal && hasHost) modeText += ` \u2192 ${device.local_host}`;
+    else if (isLocal && !hasHost) modeText += ' \u2014 isi IP di bawah';
+    el.infoConnMode.textContent = modeText;
+  }
+
+  if (el.localHostInput) el.localHostInput.value = device.local_host || '';
+
   if (el.infoDeviceStatus) {
     if (device.online) {
       el.infoDeviceStatus.innerHTML = '<span class="status-dot online"></span> Sedang Online';
@@ -693,9 +752,58 @@ function buildPayload() {
   };
 }
 
+async function saveLocalHost() {
+  if (!state.activeDevice) {
+    showToast('Pilih perangkat terlebih dahulu', 'error');
+    return;
+  }
+  const host = el.localHostInput ? el.localHostInput.value.trim() : '';
+  try {
+    const res = await apiFetch(`/api/devices/${state.activeDevice.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ local_host: host })
+    });
+    if (!res.ok) {
+      showToast('Gagal menyimpan IP lokal', 'error');
+      return;
+    }
+    const data = await res.json();
+    const idx = state.devices.findIndex(d => d.id === state.activeDevice.id);
+    if (idx >= 0) {
+      state.devices[idx].local_host = data.local_host;
+      state.activeDevice.local_host = data.local_host;
+    }
+    updateDeviceTab();
+    showToast(host ? 'IP lokal tersimpan' : 'IP lokal dihapus', 'success');
+  } catch (err) {
+    showToast('Gagal terhubung ke server', 'error');
+  }
+}
+
 async function sendFullConfig() {
   if (!state.activeDevice) {
     showToast('Pilih perangkat terlebih dahulu', 'error');
+    return;
+  }
+
+  if (state.connMode === 'local') {
+    const base = getLocalBase();
+    if (!base) {
+      showToast('Isi IP Lokal di tab Perangkat', 'error');
+      return;
+    }
+    showToast('Mengirim langsung ke panel (lokal)...', 'info');
+    try {
+      const res = await fetch(`${base}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildLocalPayload())
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      showToast('Berhasil dikirim ke panel!', 'success');
+    } catch (err) {
+      showToast('Gagal ke panel lokal. Cek IP & WiFi sama.', 'error');
+    }
     return;
   }
 
@@ -735,6 +843,30 @@ async function togglePower() {
   const newPower = !state.power;
   state.power = newPower;
   updatePowerUI();
+
+  if (state.connMode === 'local') {
+    const base = getLocalBase();
+    if (!base) {
+      state.power = !newPower;
+      updatePowerUI();
+      showToast('Isi IP Lokal di tab Perangkat', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${base}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ power: newPower })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      showToast(newPower ? 'Panel dinyalakan' : 'Panel dimatikan', 'success');
+    } catch (err) {
+      state.power = !newPower;
+      updatePowerUI();
+      showToast('Gagal ke panel lokal', 'error');
+    }
+    return;
+  }
 
   try {
     const res = await apiFetch(`/api/devices/${state.activeDevice.id}/settings`, {
